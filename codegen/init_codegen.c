@@ -499,6 +499,8 @@ LLVMTypeRef *build_struct_fields(LLVMCoreContext *ctx, ASTNode *node, LLVMUserTy
     struct_fields[1] = LLVMPointerType(type_info->vtable_struct_type, 0); // Campo 1: Puntero a vtable
 
     int index = 2;
+
+
     for (int i = 0; i < node->data.type_node.def_count; i++)
     {
         ASTNode *child = node->data.type_node.definitions[i];
@@ -507,19 +509,26 @@ LLVMTypeRef *build_struct_fields(LLVMCoreContext *ctx, ASTNode *node, LLVMUserTy
         {
             fprintf(stderr, "El tipo de mi nodo es %s\n", child->data.op_node.right->return_type->name);
             const char *member_name = child->data.op_node.left->data.variable_name; // e.g., 'x' in 'x = 12'
+            fprintf(stderr,"el nombre de mi varaibles es %s en el indice %d\n", member_name,index);
+
             LLVMTypeRef member_llvm_type = type_to_llvm(ctx, child->data.op_node.right->return_type);
 
             LLVMTypeMemberInfo *member = malloc(sizeof(LLVMTypeMemberInfo));
 
-            fprintf(stderr, "El nombre de mi parametro es %s\n", child->data.op_node.left->data.variable_name);
+            fprintf(stderr, "El nombre de mi parametro es %s y el valor es de %d\n", child->data.op_node.left->data.variable_name
+            , child->data.op_node.right->data.number_value);
+
             member->name = strdup(member_name);
             member->index = index;
             struct_fields[index++] = member_llvm_type;
             member->llvm_type = member_llvm_type;
+
             member->next = type_info->members;
             type_info->members = member;
+
         }
     }
+
 
     return struct_fields;
 }

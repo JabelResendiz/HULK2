@@ -57,26 +57,23 @@ void compile_to_llvm(ASTNode *ast, const char *filename)
     // FASE 1: Recolector Declaraciones de Tipos (solo los nombres de struct y vtables)
     find_type_dec(&visitor, ast);
 
-    // // FASE 2: Definir cuerpos de tipos y vtables, declarar metodos llvm
-    // // Esto se hace iterando sobre la lista de user_types, no sobre el AST completo de nuevo.
-    // LLVMUserTypeInfo *current_user_type_info_phase2 = ctx->user_types;
-    // while(current_user_type_info_phase2 != NULL) {
-    //     ASTNode* type_def_node_from_ast_phase2 = NULL;
-    //     for(int i = 0; i < ast->data.program_node.count; i++) {
-    //         if (ast->data.program_node.statements[i]->type == NODE_TYPE_DEC &&
-    //             strcmp(ast->data.program_node.statements[i]->data.type_node.name, current_user_type_info_phase2->name) == 0) {
-    //             type_def_node_from_ast_phase2 = ast->data.program_node.statements[i];
-    //             break;
-    //         }
-    //     }
-    //     if (type_def_node_from_ast_phase2) {
-    //         make_body_type_dec(&visitor, type_def_node_from_ast_phase2);
-    //     } else {
-    //         fprintf(stderr, RED "ERROR: ASTNode para tipo '%s' no encontrado para make_body_type_dec.\n" RESET, current_user_type_info_phase2->name);
-    //         exit(1);
-    //     }
-    //     current_user_type_info_phase2 = current_user_type_info_phase2->next;
-    // }
+    // FASE 2: Definir cuerpos de tipos y vtables, declarar metodos llvm
+    // Esto se hace iterando sobre la lista de user_types, no sobre el AST completo de nuevo.
+    LLVMUserTypeInfo *current_user_type = ctx->user_types;
+    
+
+    while(current_user_type)
+    {
+        LLVMMethodInfo* method = current_user_type->methods;
+
+        while(method)
+        {
+            codegen_accept(&visitor, method->node);
+            method= method->next;
+        }
+
+        current_user_type = current_user_type->next;
+    }
 
     // FASE 3: Registrar las firmas de funciones "libres" (no métodos de clase)
     find_function_dec(&visitor, ast);
@@ -305,8 +302,6 @@ void make_body_function_dec(LLVMVisitor *visitor, ASTNode *node)
 
 #pragma region TYPES
 
-
-
 void build_vtable_table(LLVMVisitor *v, ASTNode *node)
 {
     // numero de metodos y de asignaciones de mi tipo
@@ -341,6 +336,7 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
     type_info->num_data_members = assigments_context;
     type_info->num_methods_virtual = function_context;
     type_info->methods = NULL;
+    type_info->members = NULL;
 
     type_info->next = v->ctx->user_types;
     v->ctx->user_types = type_info;
@@ -363,7 +359,6 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
 
     LLVMTypeRef vtable_ptr_type = LLVMPointerType(vtable_struct_type, 0);
     type_info->vtable_ptr_type = vtable_ptr_type;
-
 
     LLVMTypeRef *struct_fields = build_struct_fields(v->ctx, node, type_info);
 
@@ -396,7 +391,7 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
 
             LLVMValueRef getY_func = LLVMAddFunction(v->ctx->module, func_name, method_func_type);
 
-            codegen_accept(v, child);
+           // codegen_accept(v, child);
 
             // // 1. Obtener el tipo de retorno del método desde el AST
             // LLVMTypeRef ret_type_llvm = type_to_llvm(v->ctx, child->return_type);
@@ -426,8 +421,8 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
 
             // 4. Declarar la función LLVM (sin el cuerpo aún)
             // Esto obtiene un LLVMValueRef que representa la función declarada.
-            
-            //LLVMValueRef llvm_func_value = LLVMAddFunction(v->ctx->module, func_name, specific_method_func_type);
+
+            // LLVMValueRef llvm_func_value = LLVMAddFunction(v->ctx->module, func_name, specific_method_func_type);
 
             // OTRA SOLUCION :    LLVMTypeRef *vtable_slot_types ;
             // vtable_slot_types[method_vtable_index] = LLVMPointerType(specific_method_func_type, 0);
@@ -437,17 +432,17 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
             LLVMMethodInfo *new_method = malloc(sizeof(LLVMMethodInfo));
             new_method->name = strdup(func_name);
 
-            fprintf(stderr,BLUE "new_method name es %s\n" RESET, new_method->name);
+            fprintf(stderr, BLUE "new_method name es %s\n" RESET, new_method->name);
 
             new_method->vtable_index = aux - 2;
             fprintf(stderr, "El tipo de retorno de mi funcion es %s\n", child->return_type->name);
 
             new_method->llvm_func_type = method_func_type;
-            //new_method->llvm_func_value = llvm_func_value;
-            
+            // new_method->llvm_func_value = llvm_func_value;
+
             new_method->llvm_func_value = getY_func;
             new_method->next = type_info->methods;
-
+            new_method->node = child;
             type_info->methods = new_method;
             // LLVMBasicBlockRef getY_entry = LLVMAppendBasicBlockInContext(v->ctx->context, getY_func, "entry");
             // LLVMPositionBuilderAtEnd(v->ctx->builder, getY_entry);
@@ -502,8 +497,6 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
 
     type_info->vtable_global = vtable_instance_global; // Se asigna en make_body_type_dec
     type_info->id = v->ctx->user_types ? (v->ctx->user_types->id + 1) : 0;
-
-    
 }
 
 void find_type_dec(LLVMVisitor *v, ASTNode *node)

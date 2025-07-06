@@ -29,7 +29,7 @@ typedef struct LLVMMethodInfo
     int vtable_index;
     LLVMTypeRef llvm_func_type;
     LLVMValueRef llvm_func_value;
-    ASTNode* ast_node_ptr; 
+    ASTNode* node;
     struct LLVMMethodInfo* next;
 
 }LLVMMethodInfo;
