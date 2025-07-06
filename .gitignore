@@ -1,0 +1,50 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# LaTex compiled files
+*.aux
+*.log
+*.fls
+*.fdb_latexmk
+*.gz
+
+# Executables
+*.exe
+*.out
+*.app
+*.hulk
+
+# Folders
+build/
+.vscode/
+
+# Files
+lex.yy.c
+y.output
+y.tab.c
+y.tab.h

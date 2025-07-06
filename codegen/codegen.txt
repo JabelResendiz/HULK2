@@ -1,0 +1,505 @@
+
+
+// // codegen.c
+
+// #include "codegen.h"
+// #include "init_codegen.h"
+// #include "visitor_llvm.h"
+// #include "typeId.h"
+// #include "../llvm_scope/llvm_scope.h"
+// #include <stdio.h>
+// #include <string.h>
+// #include "../type_value/type.h"
+
+// // Convierte un tipo personalizado de HULK a su equivalente en LLVM (LLVMTypeRef)
+// LLVMTypeRef type_to_llvm(LLVMVisitor *v, TypeValue *type)
+// {
+//     if (compare_types(type, &TYPE_NUM))
+//     {
+//         return LLVMDoubleType(); // doble en LLVM
+//     }
+//     else if (compare_types(type, &TYPE_STRING))
+//     {
+//         return LLVMPointerType(LLVMInt8Type(), 0); // puntero a i8* lo que equivale un char*
+//     }
+//     else if (compare_types(type, &TYPE_BOOLEAN))
+//     {
+//         return LLVMInt1Type(); // se usa i1, el tipo entero de 1 bit en LLVM
+//     }
+//     else if (compare_types(type, &TYPE_VOID))
+//     {
+//         return LLVMVoidType(); // retorno el tipo void de LLVM
+//     }
+//     else if (compare_types(type, &TYPE_OBJ))
+//     {
+//         // usamos un puntero void* que puede apuntar a cualquier tipo
+//         return LLVMPointerType(LLVMInt8Type(), 0);
+//     }
+
+//     else if (type->def_node != NULL)
+//     {
+//         // Es un tipo personalizado
+//         fprintf(stderr, "Módulo actual: %p\n", v->ctx->module);
+
+//         LLVMTypeRef struct_type = LLVMGetTypeByName(v->ctx->module, type->name);
+//         fprintf(stderr, "Buscando tipo: %s\n", type->name);
+
+//         if (!struct_type)
+//         {
+//             fprintf(stderr, "Error: Tipo %s no encontrado\n", type->name);
+//             exit(1);
+//         }
+//         fprintf(stderr, "EN TYPE_TO_LLVM : struct_type: %s\n", LLVMPrintTypeToString(struct_type));
+
+//         fprintf(stderr, "Sera un puntero\n");
+//         // Retornamos un puntero al tipo estructurado
+//         // return LLVMPointerType(struct_type, 0);
+//         // LLVMTypeRef l =struct_type;
+
+//         // fprintf(stderr, "l: %s\n", LLVMPrintTypeToString(l));
+//         // fprintf(stderr, "element_type_1 (after LLVMGetElementType): %s\n", LLVMPrintTypeToString(LLVMGetElementType(l)));
+//         //  exit(1);
+
+//         return LLVMPointerType(struct_type, 0);
+//     }
+//     fprintf(stderr, "Error: Tipo desconocido %s\n", type->name);
+//     exit(1);
+// }
+
+// // Genera la funcion main en IR (Intermediate Representation) de LLVM a partir de un AST
+// void compile_to_llvm(ASTNode *ast, const char *filename)
+// {
+
+//     // Initializa el LLVM
+//     LLVMCoreContext *ctx = llvm_core_context_create();
+
+//     // inicializador del Visitor
+//     LLVMVisitor visitor =
+//         {
+//             .ctx = ctx,
+//             .basic =
+//                 {
+//                     .program = codegen_program,
+//                     .number = codegen_number,
+//                     .string = codegen_string,
+//                     .boolean = codegen_boolean,
+//                     .variable = codegen_variable},
+//             .expr =
+//                 {
+//                     .binary = codegen_binary_op,
+//                     .assignment = codegen_assignments,
+//                     .call_function = codegen_call_function},
+//             .control =
+//                 {
+//                     .block = codegen_block,
+//                     .dec_function = codegen_dec_function,
+//                     .let_in = codegen_let_in,
+//                     .conditional = codegen_conditional,
+//                     .while_loop = codegen_while},
+//             .types =
+//                 {
+//                     .type_dec = codegen_type_dec,
+//                     .type_instance = codegen_type_instance},
+//             .attrs =
+//                 {
+//                     .attr_getter = codegen_attr_getter,
+//                     .attr_setter = codegen_attr_setter,
+//                     .method_getter = codegen_method_getter}
+
+//         };
+
+//     // Declara funciones propias del lenguaje
+//     llvm_declare_builtins(ctx);
+
+//     find_type_dec(&visitor, ast);
+
+//     make_body_type_dec(&visitor, ast);
+
+//     // regsitrar las firmas de funciones antes de generar los cuerpos
+//     find_function_dec(&visitor, ast);
+
+//     // generar los cuerpos de las funciones
+//     make_body_function_dec(&visitor, ast);
+
+//     // Create scope
+//     push_scope();
+
+//     // crea la funcion main con retorno i32 0
+//     LLVMTypeRef main_type = LLVMFunctionType(LLVMInt32Type(), NULL, 0, 0);
+//     LLVMValueRef main_func = LLVMAddFunction(ctx->module, "main", main_type);
+//     LLVMBasicBlockRef entry = LLVMAppendBasicBlock(main_func, "entry");
+
+//     // posiciona el builder en el bloque de entrada de main
+//     LLVMPositionBuilderAtEnd(ctx->builder, entry);
+
+//     if (ast)
+//     {
+//         // llama a codegen para recorrer el AST completo
+//         codegen_accept(&visitor, ast);
+//     }
+
+//     LLVMBasicBlockRef current_block = LLVMGetInsertBlock(ctx->builder);
+//     if (!LLVMGetBasicBlockTerminator(current_block))
+//     {
+//         LLVMBuildRet(ctx->builder, LLVMConstInt(LLVMInt32Type(), 0, 0));
+//     }
+
+//     fprintf(stderr, "compilador80\n");
+
+//     // Escribe en el archivo .ll
+//     char *error = NULL;
+//     if (LLVMPrintModuleToFile(ctx->module, filename, &error))
+//     {
+//         fprintf(stderr, "Error writing IR: %s\n", error);
+//         LLVMDisposeMessage(error);
+//         exit(1);
+//     }
+
+//     // Libera recursos
+//     free_llvm_core_context(ctx);
+// }
+
+// LLVMValueRef codegen_program(LLVMVisitor *v, ASTNode *node)
+// {
+//     push_scope();
+//     LLVMValueRef last = NULL;
+
+//     fprintf(stderr, "JABEL RESENDIZ\n");
+
+//     for (int i = 0; i < node->data.program.count; i++)
+//     {
+//         ASTNode *stmt = node->data.program.statements[i];
+//         if (stmt->type != AST_DECL_FUNC)
+//         {
+//             last = codegen_accept(v, stmt);
+//         }
+//         fprintf(stderr, "JABEL RESENDIZ\n");
+//     }
+
+//     pop_scope();
+//     return last ? last : LLVMConstInt(LLVMInt32Type(), 0, 0);
+// }
+
+// void find_function_dec(LLVMVisitor *visitor, ASTNode *node)
+// {
+//     if (!node)
+//         return;
+
+//     // Si es una declaración de función, procesarla y buscar dentro de su cuerpo
+//     if (node->type == AST_DECL_FUNC)
+//     {
+//         make_function_dec(visitor, node);
+//         // Buscar funciones anidadas dentro del cuerpo de la función
+//         find_function_dec(visitor, node->data.func_node.body);
+//         return;
+//     }
+
+//     // Recursivamente buscar en los diferentes tipos de nodos
+//     switch (node->type)
+//     {
+//     case AST_PROGRAM:
+//     case AST_BLOCK:
+//         for (int i = 0; i < node->data.program.count; i++)
+//         {
+//             find_function_dec(visitor, node->data.program.statements[i]);
+//         }
+//         break;
+
+//     case AST_LET:
+//         // Buscar en las declaraciones
+//         for (int i = 0; i < node->data.func_node.arg_count; i++)
+//         {
+//             if (node->data.func_node.args[i]->type == AST_ASSIGNMENT)
+//             {
+//                 find_function_dec(visitor, node->data.func_node.args[i]->data.binary_op.right);
+//             }
+//         }
+//         // Buscar en el cuerpo
+//         find_function_dec(visitor, node->data.func_node.body);
+//         break;
+//     }
+// }
+
+// // agregar la firma de la funcion
+// LLVMValueRef make_function_dec(LLVMVisitor *v, ASTNode *node)
+// {
+//     const char *name = node->data.func_node.name;
+//     TypeValue *return_type = node->data.func_node.body->computed_type;
+//     ASTNode **params = node->data.func_node.args;
+//     int param_count = node->data.func_node.arg_count;
+
+//     // Obtener tipos de parámetros
+//     LLVMTypeRef *param_types = malloc(param_count * sizeof(LLVMTypeRef));
+//     for (int i = 0; i < param_count; i++)
+//     {
+//         param_types[i] = type_to_llvm(v, params[i]->computed_type);
+//     }
+
+//     // Crear y registrar la firma de la función
+//     LLVMTypeRef func_type = LLVMFunctionType(
+//         type_to_llvm(v, return_type),
+//         param_types,
+//         param_count,
+//         0);
+
+//     LLVMValueRef func = LLVMAddFunction(v->ctx->module, name, func_type);
+//     free(param_types);
+//     return func;
+// }
+
+// void make_body_function_dec(LLVMVisitor *visitor, ASTNode *node)
+// {
+//     if (!node)
+//         return;
+
+//     // Si es una declaración de función, generar su cuerpo y procesar funciones anidadas
+//     if (node->type == AST_DECL_FUNC)
+//     {
+//         codegen_accept(visitor, node);
+//         // Procesar funciones anidadas en el cuerpo de la función
+//         make_body_function_dec(visitor, node->data.func_node.body);
+//         return;
+//     }
+
+//     // Recursivamente procesar los diferentes tipos de nodos
+//     switch (node->type)
+//     {
+//     case AST_PROGRAM:
+//     case AST_BLOCK:
+//         for (int i = 0; i < node->data.program.count; i++)
+//         {
+//             make_body_function_dec(visitor, node->data.program.statements[i]);
+//         }
+//         break;
+
+//     case AST_LET:
+//         // Procesar declaraciones
+//         for (int i = 0; i < node->data.func_node.arg_count; i++)
+//         {
+//             if (node->data.func_node.args[i]->type == AST_ASSIGNMENT)
+//             {
+//                 make_body_function_dec(visitor, node->data.func_node.args[i]->data.binary_op.right);
+//             }
+//         }
+//         // Procesar el cuerpo
+//         make_body_function_dec(visitor, node->data.func_node.body);
+//         break;
+//     }
+// }
+
+// /// @brief Declara los tipos de mi programa
+// void find_type_dec(LLVMVisitor *visitor, ASTNode *node)
+// {
+//     if (!node)
+//         return;
+
+//     if (node->type == AST_TYPE)
+//     {
+//         const char *type_name = node->data.typeDef.name_type;
+
+//         if (!find_user_type(v->ctx, type_name))
+//         {
+//             LLVMTypeRef struct_type = LLVMStructCreateNamed(v->ctx->context, type_name);
+
+//             LLVMUserTypeInfo *type_info = malloc(sizeof(LLVMUserTypeInfo));
+//             type_info->name = strdup(type_name);
+//             stype_info->struct_type = struct_type;
+//             type_info->members = NULL;
+//             type_info->vtable_global = NULL;
+//             type_info->id = v->ctx->user_types? v->ctx->user_types.id +1 : 0;
+
+//             type_info->next = v->ctx->user_types;
+//             v->ctx->user_types = type_info;
+//         }
+//     }
+
+//     // Recursivo si hay mas tipos en el AST
+//     if (node->type == AST_PROGRAM || node->type == AST_BLOCK)
+//     {
+//         for (int i = 0; i < node->data.program.count; i++)
+//         {
+//             find_type_dec(v, node->data.program.statements[i]);
+//         }
+//     }
+// }
+
+// /// @brief  Aqui voy a agregar la firma del tipo a mi modulo y mi tabla
+// void make_type_dec(LLVMVisitor *v, ASTNode *node)
+// {
+//     if (!node)
+//         return;
+
+//     if (node->type == AST_TYPE)
+//     {
+//         const char *type_name = node->data.typeDef.name_type;
+//         LLVMUserTypeInfo *type_info = find_user_type(v->ctx, type_name);
+//         if (!type_info)
+//             return;
+
+//         int field_count = 0;
+//         int member_index = 2; // 0: TypeId , 1:VTable
+
+//         if (node->data.typeDef.name_parent && node->data.typeDef.name_parent[0] != '\0')
+//         {
+//             member_index = 3; // 0:ID, 1:VTABLE , 2:ParentPtr
+//         }
+
+//         for (int i = 0; i < node->data.typeDef.body_count; i++)
+//         {
+//             if (node->data.typeDef.body_elements[i]->type == AST_ASSIGNMENT)
+//             {
+//                 field_count++;
+//             }
+//         }
+
+//         int total_fields = field_count + member_index;
+
+//         LLVMTypeRef *field_types = malloc(total_fields + sizeof(LLVMTypeRef));
+        
+//         // Campos por defecto
+//         field_types[0] = LLVMInt32Type();                    // Type ID
+//         field_types[1] = LLVMPointerType(LLVMInt8Type(), 0); // VTable Ptr (genérico por ahora)
+//         if (member_index == 3)
+//         {
+//             LLVMUserTypeInfo *parent_info = find_user_type(v->ctx, node->data.typeDef.name_parent);
+//             field_types[2] = LLVMPointerType(parent_info->struct_type, 0); // Parent Ptr
+//         }
+
+//         LLVMTypeMemberInfo* field_members = NULL;
+//         int index =0;
+//         // Campos del usuario
+//         for (int i = 0; i < node->data.typeDef.body_count; i++)
+//         {
+//             ASTNode *member = node->data.typeDef.body_elements[i];
+//             if (member->type == AST_ASSIGNMENT)
+//             {
+//                 // Asume que el análisis semántico ya ha puesto el tipo correcto
+//                 LLVMTypeMemberInfo* info = malloc(sizeof(LLVMTypeMemberInfo));
+//                 info->index = index;
+//                 index++;
+//                 info->name = member->data.var_name;
+//                 LLVMTypeRef member_llvm_type = type_to_llvm(v, member->computed_type);
+//                 info->type = member_llvm_type;
+//                 info->next = field_members;
+//                 field_members = info;
+//                 field_types[member_index++] = member_llvm_type;
+                
+//             }
+//         }
+
+//         // Definir el cuerpo de la estructura
+//         LLVMStructSetBody(type_info->struct_type, field_types, total_fields, 0);
+//         free(field_types);
+//     }
+
+//     // Recorrer recursivamente
+//     if (node->type == AST_PROGRAM || node->type == AST_BLOCK)
+//     {
+//         for (int i = 0; i < node->data.program.count; i++)
+//         {
+//             make_type_dec(v, node->data.program.statements[i]);
+//         }
+//     }
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// void build_vtable_table(LLVMVisitor* v,ASTNode* node)
+// {
+
+//     LLVMTypeRef A_vtable_struct_type = LLVMStructCreateNamed(v->ctx->context, "A_vtable");
+//     LLVMTypeRef A_struct_type = LLVMStructCreateNamed(v->ctx->context, "A");
+
+//     // funciones que reciben un puntero y devuelven un entero
+//     LLVMTypeRef method_func_type = LLVMFunctionType
+//     (v->ctx->i32_type,
+//     (LLVMTypeRef[]){LLVMPointerType(A_struct_type, 0)},
+//     1,
+//     0);
+
+//     LLVMTypeRef method_func_ptr_type = LLVMPointerType(method_func_type, 0); // Puntero a ese tipo de función
+
+//     // construccion del vtable con 2 metodos de funciones
+//     LLVMStructSetBody(A_vtable_struct_type, (LLVMTypeRef[]){method_func_ptr_type}, 2, 0);
+
+//     LLVMTypeRef A_vtable_ptr_type = LLVMPointerType(A_vtable_struct_type, 0);
+
+//     // Construccion de la clase del tipo
+//     LLVMTypeRef A_struct_fields[] = { v->ctx->i32_type, A_vtable_ptr_type, v->ctx->i32_type, v->ctx->i32_type ,v->ctx->i32_type,v->ctx->i32_type}; // i32 (id), ptr (vtable_ptr), i32 (x), i32(y)
+//     LLVMStructSetBody(A_struct_type, A_struct_fields, 6, 0); // aqui donde hay un 4 iba un 3
+
+//     LLVMTypeRef A_ptr_type = LLVMPointerType(A_struct_type, 0); // Puntero a %A
+
+//      // --- 5. Definición del Método _A_getX ---
+//     // _A_getX function type: i32 (%A*)* (reusamos method_func_type)
+//     LLVMValueRef getX_func = LLVMAddFunction(v->ctx->module, "_A_getX", method_func_type);
+
+//     // Construye el cuerpo de la función _A_getX
+//     LLVMBasicBlockRef getX_entry = LLVMAppendBasicBlockInContext(v->ctx->context, getX_func, "entry");
+//     LLVMPositionBuilderAtEnd(v->ctx->builder, getX_entry);
+
+//     LLVMValueRef param_0 = LLVMGetParam(getX_func, 0); // %0 es el puntero 'this'
+
+//     // %x_ptr = getelementptr inbounds %A, %A* %0, i32 0, i32 2
+//     // El índice 2 es para el tercer campo i32 (el campo 'x')
+//     LLVMValueRef x_ptr = LLVMBuildStructGEP2(v->ctx->builder, A_struct_type, param_0, 2, "x_ptr");
+
+//     // %x_val = load i32, i32* %x_ptr, align 4
+//     LLVMValueRef x_val = LLVMBuildLoad2(v->ctx->builder, v->ctx->i32_type, x_ptr, "x_val");
+
+//     LLVMSetAlignment(x_val, 4); // Establece la alineación para la instrucción load
+
+//     // ret i32 %x_val
+//     LLVMBuildRet(v->ctx->builder, x_val);
+
+//     // DEFINICION DEL METODO A_getY ()
+
+//     LLVMValueRef getY_func = LLVMAddFunction(v->ctx->module, "_A_getY", method_func_type);
+
+//     LLVMBasicBlockRef getY_entry = LLVMAppendBasicBlockInContext(v->ctx->context, getY_func, "entry");
+//     LLVMPositionBuilderAtEnd(v->ctx->builder, getY_entry);
+
+//     LLVMValueRef param_1 = LLVMGetParam(getY_func, 0); // %0 es el puntero 'this'
+
+//     LLVMValueRef y_ptr = LLVMBuildStructGEP2(v->ctx->builder,A_struct_type,param_1,3,"y_ptr");
+
+//     LLVMValueRef y_val = LLVMBuildLoad2(v->ctx->builder,v->ctx->i32_type,y_ptr,"y_val");
+
+//     LLVMSetAlignment(y_val,4);
+
+//     LLVMBuildRet(v->ctx->builder,y_val);
+
+//     // --- 6. Definición d  e la Instancia Global de Vtable (@A_vtable_instance) ---
+//     // @A_vtable_instance = internal global %A_vtable { i32 (%A*)* @_A_getX }
+
+//     fprintf(stderr,"Jabel Resendiz \n");
+//     LLVMValueRef vtable_initializer_values[] = {getX_func,getY_func }; // getX_func ya es de tipo i32 (%A*)*
+
+//     fprintf(stderr,"Aguirre \n");
+
+//     // aqui el segundo 0 debe ser relacionado con los metodos de vtable_initilizer_value
+//     LLVMValueRef A_vtable_constant = LLVMConstStruct(vtable_initializer_values, 2, 0);
+
+//     fprintf(stderr,"Aguirre\n");
+
+//     LLVMValueRef A_vtable_instance_global = LLVMAddGlobal(v->ctx->module, A_vtable_struct_type, "A_vtable_instance");
+//     LLVMSetInitializer(A_vtable_instance_global, A_vtable_constant);
+//     LLVMSetLinkage(A_vtable_instance_global, LLVMInternalLinkage);
+//     LLVMSetUnnamedAddr(A_vtable_instance_global, 1);
+
+// }
