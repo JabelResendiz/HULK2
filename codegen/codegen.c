@@ -60,16 +60,15 @@ void compile_to_llvm(ASTNode *ast, const char *filename)
     // FASE 2: Definir cuerpos de tipos y vtables, declarar metodos llvm
     // Esto se hace iterando sobre la lista de user_types, no sobre el AST completo de nuevo.
     LLVMUserTypeInfo *current_user_type = ctx->user_types;
-    
 
-    while(current_user_type)
+    while (current_user_type)
     {
-        LLVMMethodInfo* method = current_user_type->methods;
+        LLVMMethodInfo *method = current_user_type->methods;
 
-        while(method)
+        while (method)
         {
             codegen_accept(&visitor, method->node);
-            method= method->next;
+            method = method->next;
         }
 
         current_user_type = current_user_type->next;
@@ -341,21 +340,54 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
     type_info->next = v->ctx->user_types;
     v->ctx->user_types = type_info;
 
-    LLVMTypeRef method_func_type = LLVMFunctionType(v->ctx->double_type,                                    // tipo de retorno de la funcion
-                                                    (LLVMTypeRef[]){LLVMPointerType(class_struct_type, 0)}, // crear un puntero a la estructura de la clase %class
-                                                    1,                                                      // 1 es el numero de argumentos que la funcion toma (1 por defector para representar a this)
-                                                    0);                                                     // 0 indica que la funcion es no variaditica (que no toma un numero variable de argumentos como printf)
+    // LLVMTypeRef method_func_type = LLVMFunctionType(v->ctx->double_type,                                    // tipo de retorno de la funcion
+    //                                                 (LLVMTypeRef[]){LLVMPointerType(class_struct_type, 0)}, // crear un puntero a la estructura de la clase %class
+    //                                                 1,                                                      // 1 es el numero de argumentos que la funcion toma (1 por defector para representar a this)
+    //                                                 0);                                                     // 0 indica que la funcion es no variaditica (que no toma un numero variable de argumentos como printf)
 
-    // crea un puntero al tipo
-    LLVMTypeRef method_func_ptr_type = LLVMPointerType(method_func_type, 0); // Puntero a ese tipo de función
+    // // crea un puntero al tipo
+    // LLVMTypeRef method_func_ptr_type = LLVMPointerType(method_func_type, 0); // Puntero a ese tipo de función
 
-    type_info->method_func_type = method_func_type;
+    // type_info->method_func_type = method_func_type;
+
+
     // construccion del vtable con function_context metodos de funciones (function_context)
-    LLVMStructSetBody(vtable_struct_type, (LLVMTypeRef[]){method_func_ptr_type}, function_context, 0);
+    // LLVMStructSetBody(vtable_struct_type, (LLVMTypeRef[]){method_func_ptr_type}, function_context, 0);
 
-    // LLVMTypeRef *vtable_slot_types = (LLVMTypeRef *)malloc(function_context * sizeof(LLVMTypeRef));
-    // LLVMStructSetBody(vtable_struct_type, vtable_slot_types, function_context, 0);
-    //
+    LLVMTypeRef *vtable_slot_ptr_types = (LLVMTypeRef *)malloc(function_context * sizeof(LLVMTypeRef));
+    LLVMTypeRef *vtable_slot_types = (LLVMTypeRef *)malloc(function_context * sizeof(LLVMTypeRef));
+
+    fprintf(stderr,"2-OEEEE SIIIII\n");
+
+    for (int i = 0, j =0;  i < node->data.type_node.def_count; i++)
+    {
+        ASTNode *child = node->data.type_node.definitions[i];
+
+        if (child->type == NODE_FUNC_DEC)
+        {
+            fprintf(stderr,  GREEN "El tipo de retonor de mi funcion %s es %s\n"RESET,child->data.func_node.name, child->data.func_node.body->return_type->name);
+
+            LLVMValueRef llvm_ret_type = type_to_llvm(v->ctx, child->data.func_node.body->return_type);
+
+            LLVMTypeRef method_func_type = LLVMFunctionType(llvm_ret_type,
+                                                            (LLVMTypeRef[]){LLVMPointerType(class_struct_type, 0)},
+                                                            1 + child->data.func_node.arg_count,
+                                                            0);
+            
+            vtable_slot_types[j] = method_func_type;
+
+            LLVMTypeRef method_func_ptr_type = LLVMPointerType(method_func_type, 0); // Puntero a ese tipo de función
+
+            vtable_slot_ptr_types[j++] = method_func_ptr_type;
+            
+        }
+        
+    }
+
+    LLVMStructSetBody(vtable_struct_type, vtable_slot_ptr_types, function_context, 0);
+    
+    fprintf(stderr,"3-OEEEE SIIIII\n");
+
 
     LLVMTypeRef vtable_ptr_type = LLVMPointerType(vtable_struct_type, 0);
     type_info->vtable_ptr_type = vtable_ptr_type;
@@ -371,6 +403,8 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
 
     // ------------------------------------L LA PASION ---------------------------------------------
     // LLVMValueRef *vtable_initializer_values = build_struct_method(v->ctx,node,type_info);
+
+     fprintf(stderr,"3-OEEEE SIIIII\n");
 
     int aux = 1;
     // contador de metodos virtuales
@@ -389,9 +423,16 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
 
             fprintf(stderr, RED "func_name es %s\n" RESET, func_name);
 
-            LLVMValueRef getY_func = LLVMAddFunction(v->ctx->module, func_name, method_func_type);
+            if(vtable_slot_types[aux-2] == NULL)
+            {
+                fprintf(stderr,"clase candela %d\n",aux-2);
+            }
+            fprintf(stderr,"12 candela\n");
+            LLVMValueRef getY_func = LLVMAddFunction(v->ctx->module, func_name, vtable_slot_types[aux-2]);
 
-           // codegen_accept(v, child);
+            fprintf(stderr, RED "func_name es %s\n" RESET, func_name);
+
+            // codegen_accept(v, child);
 
             // // 1. Obtener el tipo de retorno del método desde el AST
             // LLVMTypeRef ret_type_llvm = type_to_llvm(v->ctx, child->return_type);
@@ -437,7 +478,9 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
             new_method->vtable_index = aux - 2;
             fprintf(stderr, "El tipo de retorno de mi funcion es %s\n", child->return_type->name);
 
-            new_method->llvm_func_type = method_func_type;
+            //new_method->llvm_func_type = method_func_type;
+            new_method->llvm_func_type  = vtable_slot_types[aux-2];
+
             // new_method->llvm_func_value = llvm_func_value;
 
             new_method->llvm_func_value = getY_func;
@@ -526,75 +569,75 @@ void find_type_dec(LLVMVisitor *v, ASTNode *node)
     fprintf(stderr, "ESTOY FINALIZANDO FIND_TYPE_DEC QUE SEA ASI TAMBIEN\n");
 }
 
-LLVMValueRef *build_struct_method(LLVMCoreContext *ctx, ASTNode *node, LLVMUserTypeInfo *type_info)
-{
-    int aux = 1;
-    // contador de metodos virtuales
-    LLVMValueRef *vtable_initializer_values = (LLVMValueRef *)malloc((type_info->num_methods_virtual) * sizeof(LLVMValueRef));
+// LLVMValueRef *build_struct_method(LLVMCoreContext *ctx, ASTNode *node, LLVMUserTypeInfo *type_info)
+// {
+//     int aux = 1;
+//     // contador de metodos virtuales
+//     LLVMValueRef *vtable_initializer_values = (LLVMValueRef *)malloc((type_info->num_methods_virtual) * sizeof(LLVMValueRef));
 
-    for (int i = 0; i < node->data.type_node.def_count; i++)
-    {
-        ASTNode *child = node->data.type_node.definitions[i];
+//     for (int i = 0; i < node->data.type_node.def_count; i++)
+//     {
+//         ASTNode *child = node->data.type_node.definitions[i];
 
-        if (child->type == NODE_FUNC_DEC)
-        {
+//         if (child->type == NODE_FUNC_DEC)
+//         {
 
-            aux++;
+//             aux++;
 
-            const char *func_name = child->data.func_node.name;
+//             const char *func_name = child->data.func_node.name;
 
-            fprintf(stderr, RED "func_name es %s\n" RESET, func_name);
+//             fprintf(stderr, RED "func_name es %s\n" RESET, func_name);
 
-            LLVMValueRef getY_func = LLVMAddFunction(ctx->module, func_name, type_info->method_func_type);
+//             LLVMValueRef getY_func = LLVMAddFunction(ctx->module, func_name, type_info->method_func_type);
 
-            // codegen_accept(v,child);
-            LLVMBasicBlockRef getY_entry = LLVMAppendBasicBlockInContext(ctx->context, getY_func, "entry");
-            LLVMPositionBuilderAtEnd(ctx->builder, getY_entry);
+//             // codegen_accept(v,child);
+//             LLVMBasicBlockRef getY_entry = LLVMAppendBasicBlockInContext(ctx->context, getY_func, "entry");
+//             LLVMPositionBuilderAtEnd(ctx->builder, getY_entry);
 
-            LLVMValueRef param_1 = LLVMGetParam(getY_func, 0); // %0 es el puntero 'this'
-            fprintf(stderr, RED "1-TODO BIEN\n" RESET);
+//             LLVMValueRef param_1 = LLVMGetParam(getY_func, 0); // %0 es el puntero 'this'
+//             fprintf(stderr, RED "1-TODO BIEN\n" RESET);
 
-            const char *arg_name = node->data.type_node.args[aux - 2]->data.variable_name;
+//             const char *arg_name = node->data.type_node.args[aux - 2]->data.variable_name;
 
-            char y_ptr_str[256];
-            snprintf(y_ptr_str, sizeof(y_ptr_str), "%s_ptr", arg_name);
-            fprintf(stderr, RED "1.5-TODO BIEN %s\n" RESET, arg_name);
+//             char y_ptr_str[256];
+//             snprintf(y_ptr_str, sizeof(y_ptr_str), "%s_ptr", arg_name);
+//             fprintf(stderr, RED "1.5-TODO BIEN %s\n" RESET, arg_name);
 
-            LLVMValueRef y_ptr = LLVMBuildStructGEP2(ctx->builder, type_info->struct_type, param_1, aux, y_ptr_str);
+//             LLVMValueRef y_ptr = LLVMBuildStructGEP2(ctx->builder, type_info->struct_type, param_1, aux, y_ptr_str);
 
-            fprintf(stderr, RED "2-TODO BIEN\n" RESET);
+//             fprintf(stderr, RED "2-TODO BIEN\n" RESET);
 
-            char y_val_str[256];
-            snprintf(y_val_str, sizeof(y_val_str), "%s_val", arg_name);
+//             char y_val_str[256];
+//             snprintf(y_val_str, sizeof(y_val_str), "%s_val", arg_name);
 
-            LLVMValueRef y_val = LLVMBuildLoad2(ctx->builder, ctx->i32_type, y_ptr, y_val_str);
-            fprintf(stderr, RED "3-TODO BIEN\n" RESET);
+//             LLVMValueRef y_val = LLVMBuildLoad2(ctx->builder, ctx->i32_type, y_ptr, y_val_str);
+//             fprintf(stderr, RED "3-TODO BIEN\n" RESET);
 
-            LLVMSetAlignment(y_val, 4);
-            fprintf(stderr, RED "4-TODO BIEN\n" RESET);
+//             LLVMSetAlignment(y_val, 4);
+//             fprintf(stderr, RED "4-TODO BIEN\n" RESET);
 
-            LLVMBuildRet(ctx->builder, y_val);
-            fprintf(stderr, RED "5-TODO BIEN\n" RESET);
+//             LLVMBuildRet(ctx->builder, y_val);
+//             fprintf(stderr, RED "5-TODO BIEN\n" RESET);
 
-            fprintf(stderr, GREEN "aux - 2 es %d\n" RESET, aux - 2);
+//             fprintf(stderr, GREEN "aux - 2 es %d\n" RESET, aux - 2);
 
-            vtable_initializer_values[aux - 2] = getY_func;
+//             vtable_initializer_values[aux - 2] = getY_func;
 
-            LLVMMethodInfo *new_method = malloc(sizeof(LLVMMethodInfo));
-            new_method->name = func_name;
-            new_method->vtable_index = aux - 2;
-            fprintf(stderr, "El tipo de retorno de mi funcion es %s\n", child->return_type->name);
+//             LLVMMethodInfo *new_method = malloc(sizeof(LLVMMethodInfo));
+//             new_method->name = func_name;
+//             new_method->vtable_index = aux - 2;
+//             fprintf(stderr, "El tipo de retorno de mi funcion es %s\n", child->return_type->name);
 
-            new_method->llvm_func_type = type_to_llvm(ctx, child->return_type);
-            new_method->llvm_func_value = getY_func;
-            new_method->next = type_info->methods;
+//             new_method->llvm_func_type = type_to_llvm(ctx, child->return_type);
+//             new_method->llvm_func_value = getY_func;
+//             new_method->next = type_info->methods;
 
-            type_info->methods = new_method;
-        }
-    }
+//             type_info->methods = new_method;
+//         }
+//     }
 
-    return vtable_initializer_values;
-}
+//     return vtable_initializer_values;
+// }
 
 // // FASE 1: make_body_type_dec (Construye el cuerpo de los tipos y vtables, declara funciones de métodos)
 // // Esta es tu función `make_type_dec` refactorizada.

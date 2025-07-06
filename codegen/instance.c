@@ -86,6 +86,12 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
     {
         ASTNode *constructor_arg_node = node->data.type_node.args[node->data.type_node.arg_count-1-arg_idx];
 
+        if(constructor_arg_node->type == NODE_VARIABLE)
+        {
+            // arreglar aqui para obtner el valor de la varialbe o mandar el ptr de al ubicacion
+        }
+        
+
         LLVMValueRef arg_val_llvm = NULL;
 
         if (constructor_arg_node->return_type)
@@ -93,8 +99,24 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
             if (type_equals(constructor_arg_node->return_type, &TYPE_NUMBER))
             {
                 // Asumo que TYPE_NUMBER mapea a double
+                
+                double value =0;
 
-                arg_val_llvm = LLVMConstReal(v->ctx->double_type, constructor_arg_node->data.number_value);
+                // if(constructor_arg_node->type == NODE_VARIABLE)
+                // {
+
+                //     fprintf(stderr,"Estamos aqui porque es un asignmente\n");
+
+                //     value = constructor_arg_node->data.op_node.right->data.number_value;
+                // }
+                // else
+                // {
+                //     value = constructor_arg_node->data.number_value;
+                // }
+
+                fprintf(stderr,GREEN "El valo de value es %d\n" RESET, constructor_arg_node->data.number_value);
+
+                arg_val_llvm = LLVMConstReal(v->ctx->double_type,constructor_arg_node->data.number_value);
 
                 char *store_field_ptr_str = LLVMPrintValueToString(arg_val_llvm); // Get string representation
                 fprintf(stderr, "el store_memeber es %s\n", store_field_ptr_str);

@@ -43,7 +43,7 @@ typedef struct LLVMUserTypeInfo {
     LLVMTypeRef class_ptr_type ;    // LO ultimo agregado (funcionaba antes )
     LLVMTypeRef vtable_ptr_type;    // El LLVMTypeRef para el puntero a la vtable (ej. %A_vtable*)
     LLVMValueRef vtable_global;     // La instancia global de la vtable (ej. @A_vtable_instance)
-    LLVMTypeRef method_func_type;
+    //LLVMTypeRef method_func_type;
     // Aquí podrías añadir una lista de miembros, una lista de métodos, etc.
     LLVMTypeMemberInfo* members;    // una lista de los parametros
     int num_data_members;                // la cantidad de parametros
