@@ -81,6 +81,7 @@ LLVMValueRef codegen_attr_getter(LLVMVisitor* v,ASTNode* node);
 LLVMValueRef codegen_method_getter(LLVMVisitor* v, ASTNode* node);
 
 
+LLVMValueRef codegen_dec_method(LLVMVisitor* v, ASTNode* node, LLVMUserTypeInfo* type_info);
 
 
 void find_type_dec(LLVMVisitor *v, ASTNode *node);

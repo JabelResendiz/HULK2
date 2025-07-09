@@ -68,7 +68,7 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
     // Asumo que 'type_info->members' es una lista enlazada ORDENADA según los índices de los campos.
     LLVMTypeMemberInfo **current_member_info_init = type_info->members;
 
-    fprintf(stderr,"El nombre de mi type info es %s con %d \n", type_info->name, type_info->num_data_members);
+    fprintf(stderr, "El nombre de mi type info es %s con %d \n", type_info->name, type_info->num_data_members);
 
     int arg_idx = 0; // Índice para recorrer node->data.type_node.args
 
@@ -77,7 +77,6 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
     for (int i = 0; i < type_info->num_data_members; i++)
     {
         fprintf(stderr, RED "el indice es type_info de nombre %s \n" RESET, current_member_info_init[i]->name);
-        
     }
 
     // Asegúrate de que los argumentos del constructor coincidan con los miembros de datos.
@@ -196,7 +195,6 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
     fprintf(stderr, YELLOW "8-DEBUG\n" RESET);
 
     for (int i = 0; i < type_info->num_methods_virtual; i++)
-    // while (current_method_info != NULL)
     {
         const char *method_name = current_method_info[i]->name;
         // El vtable_index debería coincidir con el orden en que se definió la vtable.
@@ -236,27 +234,32 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
         // El primer argumento es siempre el puntero 'this' (la instancia actual)
         call_args[0] = instance;
 
-        // --- Manejo de argumentos para la llamada al método ---
-        // ESTA SECCIÓN NECESITA SER DINÁMICA y basada en la lógica de tu lenguaje.
-        // El ejemplo de 'f' es una excepción codificada.
-        // Si tu constructor llama a métodos con argumentos, esos argumentos deben
-        // generarse dinámicamente aquí.
-        if (strcmp(method_name, "f") == 0)
+        LLVMTypeRef *expected_param_types = (LLVMTypeRef *)malloc(num_llvm_params * sizeof(LLVMTypeRef));
+        LLVMGetParamTypes(method_signature_type, expected_param_types);
+
+        for (int k = 1; k < num_llvm_params; k++)
         {
-            // Ejemplo para 'f' si toma 2 argumentos 'double' después de 'this'
-            if (num_llvm_params >= 3)
-            { // 'this' (1) + arg1 (1) + arg2 (1) = 3
-                call_args[1] = LLVMConstReal(v->ctx->double_type, 10.0);
-                call_args[2] = LLVMConstReal(v->ctx->double_type, 20.0);
+            LLVMTypeRef param_type = expected_param_types[k];
+            if (LLVMGetTypeKind(param_type) == LLVMDoubleTypeKind)
+            {
+                call_args[k] = LLVMConstReal(param_type, 0.0); // Valor por defecto para double
+            }
+            else if (LLVMGetTypeKind(param_type) == LLVMIntegerTypeKind)
+            {
+                call_args[k] = LLVMConstInt(param_type, 0, 0); // Valor por defecto para int
+            }
+            else if (LLVMGetTypeKind(param_type) == LLVMPointerTypeKind)
+            {
+                call_args[k] = LLVMConstNull(param_type); // Valor por defecto para punteros
             }
             else
             {
-                fprintf(stderr, YELLOW "WARNING: El método 'f' en la clase '%s' esperaba 2 argumentos después de 'this', pero su firma LLVM tiene solo %u parámetros.\n" RESET, class_name, num_llvm_params - 1);
+                // Otros tipos, maneja según tu lenguaje o pasa un valor indefinido
+                call_args[k] = LLVMGetUndef(param_type);
             }
         }
-        // Para otros métodos, si tienen parámetros, ¿de dónde vienen sus valores?
-        // Esto es un punto clave de diseño de tu compilador.
-        // Si `num_llvm_params > 1` y no tienes argumentos definidos, podrías pasar `LLVM_UndefValue` o `LLVMConstNull`.
+
+        free(expected_param_types);
 
         LLVMValueRef call_result = LLVMBuildCall2(v->ctx->builder, method_signature_type, loaded_func_ptr, call_args, num_llvm_params, "call_result");
         free(call_args);

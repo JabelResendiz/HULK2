@@ -385,3 +385,137 @@ LLVMValueRef codegen_dec_function(LLVMVisitor *v, ASTNode *node)
 
     return func;
 }
+
+
+
+LLVMValueRef codegen_dec_method(LLVMVisitor* v, ASTNode* node, LLVMUserTypeInfo* type_info)
+{
+    fprintf(stderr, "Estamos en codegen_dec_method para el método: %s\n", node->data.func_node.name);
+
+    LLVMModuleRef module = v->ctx->module;
+    LLVMBuilderRef builder = v->ctx->builder;
+    LLVMValueRef current_stack_depth_var = v->ctx->current_stack_depth_var;
+    int max_stack_depth = v->ctx->max_stack_depth;
+
+    const char *method_name = node->data.func_node.name;
+    Type *return_type = node->data.func_node.body->return_type;
+    ASTNode **explicit_params = node->data.func_node.args; // Parámetros declarados por el usuario
+    int explicit_param_count = node->data.func_node.arg_count;
+    ASTNode *body = node->data.func_node.body;
+
+    // --- Parte específica para MÉTODOS ---
+    // Necesitamos el tipo de la estructura de la clase a la que pertenece este método.
+    // Asumo que 'node->data.func_node.parent_class_name' contiene el nombre de la clase.
+    //const char *class_name = node->data.func_node.parent_class_name;
+    LLVMUserTypeInfo *parent_class_type_info = type_info;
+
+    LLVMTypeRef class_struct_ptr_type = LLVMPointerType(parent_class_type_info->struct_type, 0);
+
+    // 1. Calcular el número total de parámetros LLVM: 'this' + parámetros explícitos
+    int total_llvm_params = 1 + explicit_param_count;
+
+    // 2. Asignar memoria para el array de tipos de parámetros LLVM
+    LLVMTypeRef *llvm_param_types = malloc(total_llvm_params * sizeof(LLVMTypeRef));
+    if (!llvm_param_types) {
+        perror("Error en malloc para llvm_param_types en method_codegen");
+        exit(EXIT_FAILURE);
+    }
+
+    // 3. El primer parámetro siempre es el puntero 'self' ('this')
+    llvm_param_types[0] = class_struct_ptr_type;
+
+    // 4. Agregar los tipos de los parámetros explícitos
+    for (int i = 0; i < explicit_param_count; i++) {
+        llvm_param_types[i + 1] = type_to_llvm(v->ctx, explicit_params[i]->return_type);
+    }
+    // --- Fin de la parte específica para MÉTODOS ---
+
+
+    LLVMTypeRef ret_llvm_type = type_to_llvm(v->ctx, return_type);
+
+    fprintf(stderr, "El tipo de retorno del método %s es %s\n", method_name, return_type->name);
+
+    // Obtener o crear la función LLVM (usa el nombre decorado si es necesario, e.g., "_A_setX")
+    // Para los métodos, el nombre de la función LLVM debe ser único, como "_<ClassName>_<MethodName>"
+    // char decorated_method_name[256]; // Ajusta el tamaño según tus necesidades
+    // snprintf(decorated_method_name, sizeof(decorated_method_name), "_%s_%s", type_info->name, method_name);
+
+    LLVMValueRef func = get_or_create_function(module, method_name, ret_llvm_type, llvm_param_types, total_llvm_params);
+    v->current_function = func; // Establece la función actual en el visitor
+    LLVMBasicBlockRef entry = LLVMAppendBasicBlock(func, "entry");
+    LLVMBasicBlockRef exit_block = LLVMAppendBasicBlock(func, "function_exit");
+
+    LLVMPositionBuilderAtEnd(builder, entry);
+
+    // 1. Stack depth handling (igual que en tu codegen_dec_function)
+    LLVMTypeRef int32_type = LLVMInt32Type();
+    LLVMValueRef depth_val = LLVMBuildLoad2(builder, int32_type, current_stack_depth_var, "load_depth");
+    LLVMValueRef new_depth = LLVMBuildAdd(builder, depth_val, LLVMConstInt(int32_type, 1, 0), "inc_depth");
+    LLVMBuildStore(builder, new_depth, current_stack_depth_var);
+
+    LLVMValueRef cmp = LLVMBuildICmp(builder, LLVMIntSGT, new_depth,
+                                     LLVMConstInt(LLVMInt32Type(), max_stack_depth, 0), "cmp_overflow");
+
+    LLVMBasicBlockRef error_block = LLVMAppendBasicBlock(func, "stack_overflow");
+    LLVMBasicBlockRef continue_block = LLVMAppendBasicBlock(func, "func_body");
+    LLVMBuildCondBr(builder, cmp, error_block, continue_block);
+
+    LLVMPositionBuilderAtEnd(builder, error_block);
+    llvm_handle_stack_overflow(v->ctx, node);
+
+    LLVMPositionBuilderAtEnd(builder, continue_block);
+
+    push_scope();
+
+    // 2. Almacenar parámetros en variables locales
+    // --- ESTA PARTE ES CRÍTICA Y DIFERENTE ---
+    int param_llvm_index = 0;
+
+    // Almacenar el puntero 'self' en el ámbito
+    const char *self_var_name = "self"; // O "this", según la sintaxis de tu lenguaje
+    LLVMValueRef self_param_val = LLVMGetParam(func, param_llvm_index); // Obtiene el valor del primer parámetro LLVM (self)
+    LLVMValueRef self_alloca = LLVMBuildAlloca(builder, LLVMTypeOf(self_param_val), self_var_name);
+    LLVMBuildStore(builder, self_param_val, self_alloca);
+    declare_variable(self_var_name, self_alloca); // Agrega 'self' a tu tabla de símbolos actual
+    param_llvm_index++; // Avanza al siguiente índice de parámetro LLVM
+
+    // Almacenar los parámetros explícitos en variables locales
+    for (int i = 0; i < explicit_param_count; i++) {
+        LLVMValueRef param_val = LLVMGetParam(func, param_llvm_index);
+        LLVMValueRef alloca_var = LLVMBuildAlloca(builder, llvm_param_types[param_llvm_index], explicit_params[i]->data.variable_name);
+        LLVMBuildStore(builder, param_val, alloca_var);
+        declare_variable(explicit_params[i]->data.variable_name, alloca_var);
+        param_llvm_index++;
+    }
+    // --- FIN DE LA PARTE CRÍTICA Y DIFERENTE ---
+
+    // Generar código para el cuerpo del método
+    LLVMValueRef body_val = codegen_accept(v, body);
+    
+    LLVMBuildBr(builder, exit_block);
+
+    // Bloque de salida
+    LLVMPositionBuilderAtEnd(builder, exit_block);
+    
+    // Decrementar contador antes de retornar
+    LLVMValueRef final_depth = LLVMBuildLoad2(builder, int32_type, current_stack_depth_var, "load_depth_final");
+    LLVMValueRef dec_depth = LLVMBuildSub(builder, final_depth, LLVMConstInt(int32_type, 1, 0), "dec_depth");
+    LLVMBuildStore(builder, dec_depth, current_stack_depth_var);
+
+    // Manejo del valor de retorno
+    if (type_equals(return_type, &TYPE_VOID)) {
+        LLVMBuildRetVoid(builder);
+    } else if (body_val) {
+        LLVMBuildRet(builder, body_val);
+    } else {
+        // Retorno por defecto 0.0 como double (puede necesitar lógica para otros tipos)
+        LLVMBuildRet(builder, LLVMConstReal(LLVMDoubleType(), 0.0));
+    }
+
+    pop_scope();
+    free(llvm_param_types);
+
+    fprintf(stderr, "Método %s generado con éxito.\n", method_name);
+
+    return func;
+}

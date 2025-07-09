@@ -66,7 +66,7 @@ void compile_to_llvm(ASTNode *ast, const char *filename)
 
         for (int i = 0; i < current_user_type->num_methods_virtual; i++)
         {
-            codegen_accept(&visitor, current_user_type->methods[i]->node);
+            codegen_dec_method(&visitor, current_user_type->methods[i]->node,current_user_type);
         }
 
         current_user_type = current_user_type->next;
@@ -356,7 +356,7 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
 
             char *base_name = delete_underscore_from_str(child->data.func_node.name, type_name);
 
-            for (int j = 0;  j < parent_info->num_methods_virtual; j++)
+            for (int j = 0; j < parent_info->num_methods_virtual; j++)
             {
                 char *parent_method_name = delete_underscore_from_str(parent_info->methods[j]->name, parent_info->name);
 
@@ -375,7 +375,7 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
         }
     }
 
-    fprintf(stderr,GREEN"el numero de overriden emthods de %s es %d\n" RESET,type_name,overriden_methods);
+    fprintf(stderr, GREEN "el numero de overriden emthods de %s es %d\n" RESET, type_name, overriden_methods);
 
     char vtable_name[256];
     snprintf(vtable_name, sizeof(vtable_name), "%s_vtable", type_name);
@@ -388,7 +388,7 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
     type_info->num_data_members = assigments_context + parent_assigments;
     type_info->num_methods_virtual = function_context + parent_methods - overriden_methods;
 
-    fprintf(stderr,"Een el tipo %s el  numero de metodos de virtuales es %d y de miembros es %d\n",type_info->name, type_info->num_methods_virtual,type_info->num_data_members);
+    fprintf(stderr, "Een el tipo %s el  numero de metodos de virtuales es %d y de miembros es %d\n", type_info->name, type_info->num_methods_virtual, type_info->num_data_members);
     type_info->methods = (LLVMMethodInfo **)malloc(type_info->num_methods_virtual * sizeof(LLVMMethodInfo *));
     type_info->members = (LLVMTypeMemberInfo **)malloc(type_info->num_data_members * sizeof(LLVMTypeMemberInfo *));
 
@@ -410,35 +410,77 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
     {
         ASTNode *child = node->data.type_node.definitions[i];
 
-        if (child->type == NODE_FUNC_DEC && child->data.func_node.flag_overriden ==0)
+        if (child->type == NODE_FUNC_DEC && child->data.func_node.flag_overriden == 0)
         {
             fprintf(stderr, GREEN "El tipo de retonor de mi funcion %s es %s\n" RESET, child->data.func_node.name, child->data.func_node.body->return_type->name);
 
             LLVMValueRef llvm_ret_type = type_to_llvm(v->ctx, child->data.func_node.body->return_type);
 
-            LLVMTypeRef method_func_type = LLVMFunctionType(llvm_ret_type,
-                                                            (LLVMTypeRef[]){LLVMPointerType(class_struct_type, 0)},
-                                                            1 + child->data.func_node.arg_count,
-                                                            0);
+            // 1. Calcular le numero total de parametros LLVM : 'this' + parametros explicito
+            int num_explicit_params = child->data.func_node.arg_count;
+            int total_llvm_params = 1 + num_explicit_params;
 
+            // 2. Asignar memoria para el array de tipo de paramtros LLVM
+            LLVMTypeRef *llvm_param_types = (LLVMTypeRef *)malloc(total_llvm_params * sizeof(LLVMTypeRef));
+
+            if (!llvm_param_types)
+            {
+                perror("Error en malloc para llvm_param_types");
+                exit(EXIT_FAILURE);
+            }
+
+            // 3. El primer paramtros siempre es el puntero 'this'
+            llvm_param_types[0] = LLVMPointerType(class_struct_type, 0);
+
+            // 4. Agregar los tipos de los apramtros explcitios
+            for (int k = 0; k < num_explicit_params; k++)
+            {
+                llvm_param_types[k+1] = type_to_llvm(v->ctx,child->data.func_node.args[k]->return_type);
+            }
+
+            // 5. Crear el tipo de la funcion LLVM con el array de parametros correctos
+            LLVMTypeRef method_func_type = LLVMFunctionType(llvm_ret_type,llvm_param_types,total_llvm_params,0);
+            
             vtable_slot_types[j] = method_func_type;
 
             LLVMTypeRef method_func_ptr_type = LLVMPointerType(method_func_type, 0); // Puntero a ese tipo de función
 
             vtable_slot_ptr_types[j++] = method_func_ptr_type;
+
+            free(llvm_param_types);
         }
 
-        if(child->type == NODE_FUNC_DEC && child->data.func_node.flag_overriden >=1)
+        if (child->type == NODE_FUNC_DEC && child->data.func_node.flag_overriden >= 1)
         {
-            int index = child->data.func_node.flag_overriden -1;
+            int index = child->data.func_node.flag_overriden - 1;
 
-             LLVMValueRef llvm_ret_type = type_to_llvm(v->ctx, child->data.func_node.body->return_type);
+            LLVMValueRef llvm_ret_type = type_to_llvm(v->ctx, child->data.func_node.body->return_type);
 
-            LLVMTypeRef method_func_type = LLVMFunctionType(llvm_ret_type,
-                                                            (LLVMTypeRef[]){LLVMPointerType(class_struct_type, 0)},
-                                                            1 + child->data.func_node.arg_count,
-                                                            0);
+            // 1. Calcular le numero total de parametros LLVM : 'this' + parametros explicito
+            int num_explicit_params = child->data.func_node.arg_count;
+            int total_llvm_params = 1 + num_explicit_params;
 
+            // 2. Asignar memoria para el array de tipo de paramtros LLVM
+            LLVMTypeRef *llvm_param_types = (LLVMTypeRef *)malloc(total_llvm_params * sizeof(LLVMTypeRef));
+
+            if (!llvm_param_types)
+            {
+                perror("Error en malloc para llvm_param_types");
+                exit(EXIT_FAILURE);
+            }
+
+            // 3. El primer paramtros siempre es el puntero 'this'
+            llvm_param_types[0] = LLVMPointerType(class_struct_type, 0);
+
+            // 4. Agregar los tipos de los apramtros explcitios
+            for (int k = 0; k < num_explicit_params; k++)
+            {
+                llvm_param_types[k+1] = type_to_llvm(v->ctx,child->data.func_node.args[k]->return_type);
+            }
+
+            // 5. Crear el tipo de la funcion LLVM con el array de parametros correctos
+            LLVMTypeRef method_func_type = LLVMFunctionType(llvm_ret_type,llvm_param_types,total_llvm_params,0);
+            
             vtable_slot_types[index] = method_func_type;
 
             LLVMTypeRef method_func_ptr_type = LLVMPointerType(method_func_type, 0); // Puntero a ese tipo de función
@@ -447,7 +489,7 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
         }
     }
 
-    LLVMStructSetBody(vtable_struct_type, vtable_slot_ptr_types,type_info->num_methods_virtual, 0);
+    LLVMStructSetBody(vtable_struct_type, vtable_slot_ptr_types, type_info->num_methods_virtual, 0);
 
     type_info->vtable_slot_ptr_types = vtable_slot_ptr_types;
     type_info->vtable_slot_types = vtable_slot_types;
@@ -473,9 +515,9 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
 
     fprintf(stderr, "3-OEEEE SIIIII\n");
 
-    LLVMValueRef *vtable_initializer_values = build_vtable_initializer(v->ctx,node,type_info);
+    LLVMValueRef *vtable_initializer_values = build_vtable_initializer(v->ctx, node, type_info);
     type_info->vtable_initializer_values = vtable_initializer_values;
-   
+
 #pragma endregion
 
     // --- 6. Definición d  e la Instancia Global de Vtable (@A_vtable_instance) ---
@@ -524,7 +566,6 @@ void find_type_dec(LLVMVisitor *v, ASTNode *node)
     }
 
     fprintf(stderr, "ESTOY FINALIZANDO FIND_TYPE_DEC QUE SEA ASI TAMBIEN\n");
-    
 }
 
 // LLVMValueRef *build_struct_method(LLVMCoreContext *ctx, ASTNode *node, LLVMUserTypeInfo *type_info)
