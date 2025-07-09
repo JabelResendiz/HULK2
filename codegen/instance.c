@@ -65,15 +65,7 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
     // Los miembros de datos en la estructura LLVM comienzan después del ID (campo 0) y el puntero a la vtable (campo 1).
     // Es decir, el primer miembro de datos está en el índice 2.
     // Asumo que 'type_info->members' es una lista enlazada ORDENADA según los índices de los campos.
-    LLVMTypeMemberInfo *current_member_info_init = type_info->members;
-
-    LLVMTypeMemberInfo *current = type_info->members;
-
-    while (current)
-    {
-        fprintf(stderr, BLUE "el nombre de mi current es %s y de indice %d \n" RESET, current->name, current->index);
-        current = current->next;
-    }
+    LLVMTypeMemberInfo **current_member_info_init = type_info->members;
 
     int arg_idx = 0; // Índice para recorrer node->data.type_node.args
 
@@ -82,7 +74,8 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
     // Asegúrate de que los argumentos del constructor coincidan con los miembros de datos.
     // Esto es una simplificación; en un compilador real, deberías mapear los argumentos del constructor
     // a los miembros de la clase según la semántica de tu lenguaje.
-    while (current_member_info_init != NULL && arg_idx < node->data.type_node.arg_count)
+    for(int i=0;i<type_info->num_data_members && arg_idx < node->data.type_node.arg_count;i++)
+    //while (current_member_info_init != NULL && arg_idx < node->data.type_node.arg_count)
     {
         ASTNode *constructor_arg_node = node->data.type_node.args[node->data.type_node.arg_count-1-arg_idx];
 
@@ -154,8 +147,8 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
         // que debería ser 2 para el primer miembro de datos, 3 para el segundo, etc.
         // Asumo que find_struct_fields (o el proceso que llena type_info->members)
         // asigna los índices correctamente (0 para id, 1 para vtable, luego 2, 3, ... para miembros).
-        fprintf(stderr, RED "el indice es type_info %d de nombre %s \n" RESET, current_member_info_init->index, current_member_info_init->name);
-        LLVMValueRef member_field_ptr = LLVMBuildStructGEP2(v->ctx->builder, type_info->struct_type, instance, current_member_info_init->index, "member_field_ptr");
+        fprintf(stderr, RED "el indice es type_info %d de nombre %s \n" RESET, current_member_info_init[i]->index, current_member_info_init[i]->name);
+        LLVMValueRef member_field_ptr = LLVMBuildStructGEP2(v->ctx->builder, type_info->struct_type, instance, current_member_info_init[i]->index, "member_field_ptr");
 
         char *member_field_ptr_str = LLVMPrintValueToString(member_field_ptr); // Get string representation
         fprintf(stderr, GREEN"el member_field_ptr es %s\n" RESET, member_field_ptr_str);
@@ -169,9 +162,9 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
         LLVMDisposeMessage(store_field_ptr_str); // Free the allocated string\
 
         // La alineación es importante para el rendimiento.
-        LLVMSetAlignment(store_member, LLVMABISizeOfType(target_data, current_member_info_init->llvm_type));
+        LLVMSetAlignment(store_member, LLVMABISizeOfType(target_data, current_member_info_init[i]->llvm_type));
 
-        current_member_info_init = current_member_info_init->next;
+       // current_member_info_init = current_member_info_init->next;
         arg_idx++;
         fprintf(stderr, YELLOW "5-DEBUG\n" RESET);
     }
@@ -190,14 +183,15 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
     fprintf(stderr, YELLOW "7-DEBUG\n" RESET);
 
     // Itera a través de la lista enlazada de métodos almacenada en type_info
-    LLVMMethodInfo *current_method_info = type_info->methods;
+    LLVMMethodInfo **current_method_info = type_info->methods;
     fprintf(stderr, YELLOW "8-DEBUG\n" RESET);
 
-    while (current_method_info != NULL)
+    for(int i=0; i<type_info->num_methods_virtual ;i++)
+   // while (current_method_info != NULL)
     {
-        const char *method_name = current_method_info->name;
+        const char *method_name = current_method_info[i]->name;
         // El vtable_index debería coincidir con el orden en que se definió la vtable.
-        int vtable_index = current_method_info->vtable_index;
+        int vtable_index = current_method_info[i]->vtable_index;
 
         // Obtener el puntero de la función del slot de la vtable
         LLVMValueRef func_ptr_addr = LLVMBuildStructGEP2(v->ctx->builder, type_info->vtable_struct_type, vtable_ptr_loaded, vtable_index, "func_ptr_addr");
@@ -205,7 +199,7 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
         fprintf(stderr, YELLOW "10-DEBUG\n" RESET);
 
         // El method_signature_type viene directamente de la información pre-calculada
-        LLVMTypeRef method_signature_type = current_method_info->llvm_func_type;
+        LLVMTypeRef method_signature_type = current_method_info[i]->llvm_func_type;
 
         if (method_signature_type == NULL)
         {
@@ -284,7 +278,7 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
         }
 
         // Avanza al siguiente método en la lista
-        current_method_info = current_method_info->next;
+        //current_method_info = current_method_info->next;
     }
 
     fprintf(stderr, YELLOW "9-DEBUG\n" RESET);

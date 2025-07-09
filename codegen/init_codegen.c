@@ -79,7 +79,7 @@ int get_id_type(LLVMCoreContext *ctx, const char *name)
 
 LLVMUserTypeInfo *find_user_type(LLVMCoreContext *ctx, const char *name)
 {
-    fprintf(stderr,"VOY A BUSCAR EN EL FIND_USER_TYPE el nombre de varaible %s\n",name);
+    fprintf(stderr, "VOY A BUSCAR EN EL FIND_USER_TYPE el nombre de varaible %s\n", name);
     LLVMUserTypeInfo *current = ctx->user_types;
 
     while (current)
@@ -99,15 +99,13 @@ LLVMUserTypeInfo *find_user_type(LLVMCoreContext *ctx, const char *name)
 
 int find_field_index(LLVMUserTypeInfo *type_info, const char *param_name)
 {
-    LLVMTypeMemberInfo *current = type_info->members;
 
-    while (current)
+    for (int i = 0; i < type_info->num_data_members; i++)
     {
-        if (strcmp(current->name, param_name) == 0)
+        if (strcmp(type_info->members[i]->name, param_name) == 0)
         {
-            return current->index;
+            return type_info->members[i]->index;
         }
-        current = current->next;
     }
 
     return -1;
@@ -115,15 +113,13 @@ int find_field_index(LLVMUserTypeInfo *type_info, const char *param_name)
 
 LLVMTypeMemberInfo *find_member_info(LLVMUserTypeInfo *type_info, const char *param_name)
 {
-    LLVMTypeMemberInfo *current = type_info->members;
 
-    while (current)
+    for (int i = 0; i < type_info->num_data_members; i++)
     {
-        if (strcmp(current->name, param_name) == 0)
+        if (strcmp(type_info->members[i]->name, param_name) == 0)
         {
-            return current;
+            return type_info->members[i];
         }
-        current = current->next;
     }
 
     return NULL;
@@ -132,17 +128,12 @@ LLVMTypeMemberInfo *find_member_info(LLVMUserTypeInfo *type_info, const char *pa
 LLVMMethodInfo *find_method_info(LLVMUserTypeInfo *type_info, const char *name)
 {
 
-    LLVMMethodInfo *current = type_info->methods;
-
-    while (current)
+    for (int i = 0; i < type_info->num_methods_virtual; i++)
     {
-
-        if (strcmp(current->name, name) == 0)
+        if (strcmp(type_info->methods[i]->name, name) == 0)
         {
-            return current;
+            return type_info->methods[i];
         }
-
-        current = current->next;
     }
 
     return NULL;
@@ -205,11 +196,11 @@ void free_llvm_core_context(LLVMCoreContext *ctx)
     {
         LLVMUserTypeInfo *next_type = current_type->next;
         free(current_type->name);
-        if (current_type->methods)
+        if (current_type->num_methods_virtual)
         {
             free_llvm_method(current_type->methods);
         }
-        if (current_type->members)
+        if (current_type->num_data_members)
         {
             free_llvm_type_member(current_type->members);
         }
@@ -225,24 +216,29 @@ void free_llvm_core_context(LLVMCoreContext *ctx)
     free(ctx);
 }
 
-void free_llvm_type_member(LLVMTypeMemberInfo *member)
+void free_llvm_type_member(LLVMTypeMemberInfo **member)
 {
     if (!member)
         return;
-    free(member->name);
 
-    free_llvm_type_member(member->next);
+    for (int i=0;i< sizeof(member)/sizeof(member[0]);i++)
+    {
+        free(member[i]);
+    }
 
     free(member);
+    
 }
 
-void free_llvm_method(LLVMMethodInfo *method)
+void free_llvm_method(LLVMMethodInfo **method)
 {
     if (!method)
         return;
-    free(method->name);
 
-    free_llvm_method(method->next);
+    for (int i = 0; i < sizeof(method) / sizeof(method[0]); i++)
+    {
+        free(method[i]->name);
+    }
 
     free(method);
 }
@@ -493,15 +489,30 @@ LLVMTypeRef type_to_llvm(LLVMCoreContext *ctx, Type *type) // <--- FIRMA CAMBIAD
 
 LLVMTypeRef *build_struct_fields(LLVMCoreContext *ctx, ASTNode *node, LLVMUserTypeInfo *type_info)
 {
-
+    LLVMUserTypeInfo *parent_info = type_info->parent_info;
+    int parent_members = parent_info ? parent_info->num_data_members : 0;
     LLVMTypeRef *struct_fields = (LLVMTypeRef *)malloc((type_info->num_data_members + 2) * sizeof(LLVMTypeRef));
     struct_fields[0] = ctx->i32_type;                                     // Campo 0: ID del tipo
     struct_fields[1] = LLVMPointerType(type_info->vtable_struct_type, 0); // Campo 1: Puntero a vtable
 
-    int index = 2;
+    // type_info->members = (LLVMTypeMemberInfo **)malloc(type_info->num_data_members * sizeof(LLVMTypeMemberInfo *));
 
+    for (int i = 0; i < parent_members; i++)
+    {
+        struct_fields[i + 2] = parent_info->struct_fields[i + 2];
 
-    for (int i = 0; i < node->data.type_node.def_count; i++)
+        LLVMTypeMemberInfo *new_member = malloc(sizeof(LLVMTypeMemberInfo));
+
+        char *base_member_name = delete_underscore_from_str(parent_info->members[i], parent_info->name);
+
+        new_member->name = concat_str_with_underscore(type_info->name, base_member_name);
+        new_member->llvm_type = parent_info->members[i]->llvm_type;
+        new_member->index = parent_info->members[i]->index;
+
+        type_info->members[i] = new_member;
+    }
+
+    for (int i = 0, index = 2 + parent_members; i < node->data.type_node.def_count; i++)
     {
         ASTNode *child = node->data.type_node.definitions[i];
 
@@ -509,26 +520,101 @@ LLVMTypeRef *build_struct_fields(LLVMCoreContext *ctx, ASTNode *node, LLVMUserTy
         {
             fprintf(stderr, "El tipo de mi nodo es %s\n", child->data.op_node.right->return_type->name);
             const char *member_name = child->data.op_node.left->data.variable_name; // e.g., 'x' in 'x = 12'
-            fprintf(stderr,"el nombre de mi varaibles es %s en el indice %d\n", member_name,index);
+            fprintf(stderr, "el nombre de mi varaibles es %s en el indice %d\n", member_name, index);
 
             LLVMTypeRef member_llvm_type = type_to_llvm(ctx, child->data.op_node.right->return_type);
 
             LLVMTypeMemberInfo *member = malloc(sizeof(LLVMTypeMemberInfo));
 
-            fprintf(stderr, "El nombre de mi parametro es %s y el valor es de %d\n", child->data.op_node.left->data.variable_name
-            , child->data.op_node.right->data.number_value);
+            fprintf(stderr, "El nombre de mi parametro es %s y el valor es de %d\n", child->data.op_node.left->data.variable_name, child->data.op_node.right->data.number_value);
 
             member->name = strdup(member_name);
             member->index = index;
-            struct_fields[index++] = member_llvm_type;
+            struct_fields[index] = member_llvm_type;
             member->llvm_type = member_llvm_type;
 
-            member->next = type_info->members;
-            type_info->members = member;
-
+            type_info->members[index] = member;
         }
     }
 
-
     return struct_fields;
+}
+
+LLVMValueRef *build_vtable_initializer(LLVMCoreContext *ctx, ASTNode *node, LLVMUserTypeInfo *type_info)
+{
+    LLVMUserTypeInfo *parent_info = type_info->parent_info;
+    int parent_methods = parent_info ? parent_info->num_methods_virtual : 0;
+    LLVMValueRef *vtable_initializer_values = (LLVMValueRef *)malloc(type_info->num_methods_virtual * sizeof(LLVMValueRef));
+    LLVMTypeRef *vtable_slot_types = type_info->vtable_slot_types;
+
+    for (int i = 0; i < parent_methods; i++)
+    {
+        vtable_initializer_values[i] = parent_info->vtable_initializer_values[i];
+
+        LLVMMethodInfo *new_method = malloc(sizeof(LLVMMethodInfo));
+        
+        char *base_method_name = delete_underscore_from_str(parent_info->methods[i]->name, parent_info->name);
+
+        fprintf(stderr,GREEN"el base funcion es %s\n"RESET, base_method_name);
+
+        char* new_name = concat_str_with_underscore(type_info->name,base_method_name);
+
+        fprintf(stderr, GREEN "El nueov nombre es de %s\n"RESET,new_name );
+        new_method->name = new_name;
+        new_method->llvm_func_type = parent_info->methods[i]->llvm_func_type;
+        new_method->llvm_func_value = parent_info->methods[i]->llvm_func_value;
+        new_method->vtable_index = parent_info->methods[i]->vtable_index;
+        new_method->node = parent_info->methods[i]->node;
+
+        type_info->methods[i] = new_method;
+    }
+
+    for (int i = 0, aux = parent_methods; i < node->data.type_node.def_count; i++)
+    {
+        ASTNode *child = node->data.type_node.definitions[i];
+
+        if (child->type == NODE_FUNC_DEC && child->data.func_node.flag_overriden == 0)
+        {
+
+            const char *func_name = child->data.func_node.name;
+
+            LLVMValueRef getY_func = LLVMAddFunction(ctx->module, func_name, vtable_slot_types[aux]);
+
+            fprintf(stderr, RED "func_name es %s\n" RESET, func_name);
+
+            vtable_initializer_values[aux] = getY_func;
+
+            LLVMMethodInfo *new_method = malloc(sizeof(LLVMMethodInfo));
+            new_method->name = strdup(func_name);
+            new_method->vtable_index = aux;
+            new_method->llvm_func_type = vtable_slot_types[aux];
+            new_method->llvm_func_value = getY_func;
+            new_method->node = child;
+
+            type_info->methods[aux++] = new_method;
+        }
+        else if (child->type == NODE_FUNC_DEC && child->data.func_node.flag_overriden >= 1)
+        {
+            int index = child->data.func_node.flag_overriden -1;
+
+            const char *func_name = child->data.func_node.name;
+
+            LLVMValueRef getY_func = LLVMAddFunction(ctx->module, func_name, vtable_slot_types[index]);
+
+            fprintf(stderr, RED "func_name es %s\n" RESET, func_name);
+
+            vtable_initializer_values[index] = getY_func;
+
+            LLVMMethodInfo *new_method = malloc(sizeof(LLVMMethodInfo));
+            new_method->name = strdup(func_name);
+            new_method->vtable_index = index;
+            new_method->llvm_func_type = vtable_slot_types[index];
+            new_method->llvm_func_value = getY_func;
+            new_method->node = child;
+
+            type_info->methods[index] = new_method;
+        }
+    }
+
+    return vtable_initializer_values;
 }

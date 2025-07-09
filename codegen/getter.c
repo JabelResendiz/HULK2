@@ -62,15 +62,7 @@ LLVMValueRef codegen_attr_getter(LLVMVisitor* v,ASTNode* node)
     // 4. Get the LLVM Type of the member we are trying to access.
     // You'd need to extend LLVMTypeMemberInfo to include the LLVMTypeRef of the member.
     // Alternatively, if your find_field_index function can also return the type.
-    LLVMTypeMemberInfo *member_info = NULL; // You'll need a helper to find this by index or name
-    LLVMTypeMemberInfo *current_member = type_info->members;
-    while(current_member) {
-        if (strcmp(current_member->name, attribute_name) == 0) {
-            member_info = current_member;
-            break;
-        }
-        current_member = current_member->next;
-    }
+    LLVMTypeMemberInfo *member_info = find_member_info(type_info, attribute_name); 
 
     if (!member_info) {
         fprintf(stderr, RED "Error interno: LLVMTypeMemberInfo para '%s' no encontrado. Esto no debería pasar si find_field_index funcionó.\n" RESET, attribute_name);
@@ -109,35 +101,6 @@ LLVMValueRef codegen_attr_getter(LLVMVisitor* v,ASTNode* node)
 }
 
 
-// LLVMValueRef codegen_attr_getter(LLVMVisitor* v,ASTNode* node)
-// {
-//     fprintf(stderr,RED "ESTOY EN EL CODEGEN_ATTR_GETTER\n" RESET);
-
-//     const char* instance_name = node->data.op_node.left->return_type->name;
-
-//     LLVMUserTypeInfo* type_info = find_user_type(v->ctx,instance_name);
-//     if (!type_info)
-//     {
-//         fprintf(stderr, RED "Error: No se encontró la información de tipo para '%s'.\n" RESET, instance_name);
-//         return NULL;
-//     }
-//     fprintf(stderr, "2-HASTA AQUI TODO BIEN con tipo de objeto: %s\n", type_info->name);
-
-//     const char* member_name = node->data.op_node.left->data.variable_name;
-
-//     LLVMTypeMemberInfo* member_info = find_member_info(type_info,member_name);
-
-//     if (!member_info)
-//     {
-//         fprintf(stderr, RED "Error: No se encontró la información del miembro para '%s'.\n" RESET, member_name );
-//         return NULL;
-//     }
-//     fprintf(stderr, "3-HASTA AQUI TODO BIEN con tipo de objeto: %s\n", type_info->name);
-
-//     return member_info.
-
-
-// }
 LLVMValueRef codegen_method_getter(LLVMVisitor *v, ASTNode *node)
 {
     fprintf(stderr, RED "Estoy en el CODEGEN_METHOD_GETTER_90\n" RESET);

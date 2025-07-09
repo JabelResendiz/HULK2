@@ -62,6 +62,7 @@ typedef struct ASTNode {
             struct ASTNode** args;
             int arg_count;
             struct ASTNode *body;
+            int flag_overriden;
         } func_node;
         struct {
             struct ASTNode *cond;
