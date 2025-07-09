@@ -351,11 +351,6 @@ void visit_attr_setter(Visitor *v, ASTNode *node)
 
     accept(v, value);
 
-    if (value == NULL)
-    {
-        fprintf(stderr, "CLASE CANDELA\n");
-    }
-    exit(1);
     Type *inferried_type = get_type(value);
 
     // checking whether or not the new type is consistent with the initialization type
