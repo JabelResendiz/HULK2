@@ -533,9 +533,19 @@ LLVMTypeRef *build_struct_fields(LLVMCoreContext *ctx, ASTNode *node, LLVMUserTy
             struct_fields[index] = member_llvm_type;
             member->llvm_type = member_llvm_type;
 
-            type_info->members[index] = member;
+            type_info->members[index-2] = member;
+            index++;
         }
     }
+
+    // LLVMTypeMemberInfo** f = type_info->members;
+
+    // for(int i =0;i<type_info->num_data_members;i++)
+    // {
+    //     fprintf(stderr,"el nombr de mi varaibles es f[]")
+    // }
+
+
 
     return struct_fields;
 }

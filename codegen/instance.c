@@ -11,7 +11,8 @@
 #define YELLOW "\x1B[33m"
 #define RESET "\x1B[0m"
 
-// --- FASE 5: codegen_type_instance (Genera el LLVM IR para la creación de una instancia de un tipo) ---
+///--- FASE 5: codegen_type_instance (Genera el LLVM IR para la creación de una instancia de un tipo) ---
+
 LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
 {
     fprintf(stderr, RED "CODEGEN_TYPE_INSTANCE\n" RESET);
@@ -67,23 +68,40 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
     // Asumo que 'type_info->members' es una lista enlazada ORDENADA según los índices de los campos.
     LLVMTypeMemberInfo **current_member_info_init = type_info->members;
 
+    fprintf(stderr,"El nombre de mi type info es %s con %d \n", type_info->name, type_info->num_data_members);
+
     int arg_idx = 0; // Índice para recorrer node->data.type_node.args
 
     fprintf(stderr, YELLOW "4-DEBUG\n" RESET);
 
+    for (int i = 0; i < type_info->num_data_members; i++)
+    {
+        fprintf(stderr, RED "el indice es type_info de nombre %s \n" RESET, current_member_info_init[i]->name);
+        
+    }
+
     // Asegúrate de que los argumentos del constructor coincidan con los miembros de datos.
     // Esto es una simplificación; en un compilador real, deberías mapear los argumentos del constructor
     // a los miembros de la clase según la semántica de tu lenguaje.
-    for(int i=0;i<type_info->num_data_members && arg_idx < node->data.type_node.arg_count;i++)
-    //while (current_member_info_init != NULL && arg_idx < node->data.type_node.arg_count)
+    for (int i = 0; i < type_info->num_data_members && arg_idx < node->data.type_node.arg_count; i++)
+    // while (current_member_info_init != NULL && arg_idx < node->data.type_node.arg_count)
     {
-        ASTNode *constructor_arg_node = node->data.type_node.args[node->data.type_node.arg_count-1-arg_idx];
+        ASTNode *constructor_arg_node = node->data.type_node.args[arg_idx];
 
-        if(constructor_arg_node->type == NODE_VARIABLE)
+        // fprintf(stderr,"el nombre del argumento es %s\n");
+
+        // LLVMValue ar_val_llvm = codegen_accept(v,constructor_arg_node);
+
+        // if (!arg_val_llvm) {
+        //     fprintf(stderr, RED "ERROR: Fallo al generar código para el argumento %d del constructor (Línea: %d).\n" RESET, i, node->data.type_node.args[i]->line);
+        //     free(constructor_arg_node);
+        //     exit(1);
+        // }
+
+        if (constructor_arg_node->type == NODE_VARIABLE)
         {
             // arreglar aqui para obtner el valor de la varialbe o mandar el ptr de al ubicacion
         }
-        
 
         LLVMValueRef arg_val_llvm = NULL;
 
@@ -92,29 +110,17 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
             if (type_equals(constructor_arg_node->return_type, &TYPE_NUMBER))
             {
                 // Asumo que TYPE_NUMBER mapea a double
-                
-                double value =0;
 
-                // if(constructor_arg_node->type == NODE_VARIABLE)
-                // {
+                double value = 0;
 
-                //     fprintf(stderr,"Estamos aqui porque es un asignmente\n");
+                fprintf(stderr, GREEN "El valo de value es %d\n" RESET, constructor_arg_node->data.number_value);
 
-                //     value = constructor_arg_node->data.op_node.right->data.number_value;
-                // }
-                // else
-                // {
-                //     value = constructor_arg_node->data.number_value;
-                // }
-
-                fprintf(stderr,GREEN "El valo de value es %d\n" RESET, constructor_arg_node->data.number_value);
-
-                arg_val_llvm = LLVMConstReal(v->ctx->double_type,constructor_arg_node->data.number_value);
+                arg_val_llvm = LLVMConstReal(v->ctx->double_type, constructor_arg_node->data.number_value);
 
                 char *store_field_ptr_str = LLVMPrintValueToString(arg_val_llvm); // Get string representation
                 fprintf(stderr, "el store_memeber es %s\n", store_field_ptr_str);
-                LLVMDisposeMessage(store_field_ptr_str); // Free the allocated string\
-
+                LLVMDisposeMessage(store_field_ptr_str); // Free the allocated string
+                fprintf(stderr, "TERMINAMOS\n");
             }
             else if (type_equals(constructor_arg_node->return_type, &TYPE_STRING))
             {
@@ -147,11 +153,14 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
         // que debería ser 2 para el primer miembro de datos, 3 para el segundo, etc.
         // Asumo que find_struct_fields (o el proceso que llena type_info->members)
         // asigna los índices correctamente (0 para id, 1 para vtable, luego 2, 3, ... para miembros).
+
+        fprintf(stderr, "ESTAMOS AQUIIIII\n");
+
         fprintf(stderr, RED "el indice es type_info %d de nombre %s \n" RESET, current_member_info_init[i]->index, current_member_info_init[i]->name);
         LLVMValueRef member_field_ptr = LLVMBuildStructGEP2(v->ctx->builder, type_info->struct_type, instance, current_member_info_init[i]->index, "member_field_ptr");
 
         char *member_field_ptr_str = LLVMPrintValueToString(member_field_ptr); // Get string representation
-        fprintf(stderr, GREEN"el member_field_ptr es %s\n" RESET, member_field_ptr_str);
+        fprintf(stderr, GREEN "el member_field_ptr es %s\n" RESET, member_field_ptr_str);
         LLVMDisposeMessage(member_field_ptr_str); // Free the allocated string\
 
 
@@ -164,7 +173,7 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
         // La alineación es importante para el rendimiento.
         LLVMSetAlignment(store_member, LLVMABISizeOfType(target_data, current_member_info_init[i]->llvm_type));
 
-       // current_member_info_init = current_member_info_init->next;
+        // current_member_info_init = current_member_info_init->next;
         arg_idx++;
         fprintf(stderr, YELLOW "5-DEBUG\n" RESET);
     }
@@ -186,8 +195,8 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
     LLVMMethodInfo **current_method_info = type_info->methods;
     fprintf(stderr, YELLOW "8-DEBUG\n" RESET);
 
-    for(int i=0; i<type_info->num_methods_virtual ;i++)
-   // while (current_method_info != NULL)
+    for (int i = 0; i < type_info->num_methods_virtual; i++)
+    // while (current_method_info != NULL)
     {
         const char *method_name = current_method_info[i]->name;
         // El vtable_index debería coincidir con el orden en que se definió la vtable.
@@ -278,7 +287,7 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
         }
 
         // Avanza al siguiente método en la lista
-        //current_method_info = current_method_info->next;
+        // current_method_info = current_method_info->next;
     }
 
     fprintf(stderr, YELLOW "9-DEBUG\n" RESET);
@@ -291,6 +300,94 @@ LLVMValueRef codegen_type_dec(LLVMVisitor *v, ASTNode *node)
 {
     return NULL; // Esta función se mantiene igual, no genera código directamente
 }
+
+// LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
+// {
+//     fprintf(stderr, RED "CODEGEN_TYPE_INSTANCE\n" RESET);
+
+//     const char *class_name = node->data.type_node.name;
+
+//     LLVMUserTypeInfo *type_info = find_user_type(v->ctx, class_name);
+//     if (!type_info)
+//     {
+//         fprintf(stderr, RED "ERROR: Clase '%s' no encontrada para instanciación (Línea: %d).\n" RESET, class_name, node->line);
+//         exit(1);
+//     }
+//     fprintf(stderr, "Generando código para instanciar la clase '%s'...\n", class_name);
+
+//     LLVMTargetDataRef target_data = LLVMCreateTargetData(LLVMGetDataLayoutStr(v->ctx->module));
+
+//     // Calcular el tamaño del struct (TU CÓDIGO ORIGINAL ES CORRECTO AQUÍ)
+//     LLVMValueRef null_class_ptr = LLVMConstNull(LLVMPointerType(type_info->struct_type, 0));
+//     LLVMValueRef size_gep_indices[] = {LLVMConstInt(v->ctx->i32_type, 1, 0)};
+//     LLVMValueRef size_ptr = LLVMBuildGEP2(v->ctx->builder, type_info->struct_type, null_class_ptr, size_gep_indices, 1, "size_ptr");
+//     LLVMValueRef size = LLVMBuildPtrToInt(v->ctx->builder, size_ptr, v->ctx->i64_type, "size");
+
+//     fprintf(stderr, YELLOW "1-DEBUG: Tamaño del objeto calculado.\n" RESET);
+
+//     // Asignar memoria usando malloc (TU CÓDIGO ORIGINAL ES CORRECTO AQUÍ)
+//     LLVMValueRef raw_ptr = LLVMBuildCall2(v->ctx->builder, v->ctx->malloc_func_type, v->ctx->malloc_func, (LLVMValueRef[]){size}, 1, "raw_ptr");
+//     LLVMValueRef instance = LLVMBuildBitCast(v->ctx->builder, raw_ptr, LLVMPointerType(type_info->struct_type, 0), "instance");
+
+//     fprintf(stderr, YELLOW "2-DEBUG: Puntero de instancia asignado y convertido.\n" RESET);
+
+//     // Establecer el ID del tipo (campo 0) (TU CÓDIGO ORIGINAL ES CORRECTO AQUÍ)
+//     LLVMValueRef id_ptr = LLVMBuildStructGEP2(v->ctx->builder, type_info->struct_type, instance, 0, "id_ptr");
+//     LLVMValueRef store_id = LLVMBuildStore(v->ctx->builder, LLVMConstInt(v->ctx->i32_type, type_info->id, 0), id_ptr);
+//     LLVMSetAlignment(store_id, 4);
+
+//     fprintf(stderr, YELLOW "3-DEBUG: ID del tipo almacenado.\n" RESET);
+
+//     // Establecer el puntero a la vtable (campo 1) (TU CÓDIGO ORIGINAL ES CORRECTO AQUÍ)
+//     LLVMValueRef vt_ptr_field = LLVMBuildStructGEP2(v->ctx->builder, type_info->struct_type, instance, 1, "vt_ptr_field");
+//     LLVMValueRef store_vtable = LLVMBuildStore(v->ctx->builder, type_info->vtable_global, vt_ptr_field);
+//     LLVMSetAlignment(store_vtable, 8);
+
+//     fprintf(stderr, YELLOW "4-DEBUG: Puntero a la vtable almacenado.\n" RESET);
+
+//     // --- NUEVO: LLAMAR AL CONSTRUCTOR EXPLÍCITO ---
+//     // Esto es lo que reemplaza la lógica de inicialización directa de miembros y las llamadas a métodos genéricas.
+//     if (!type_info->constructor_func) {
+//         fprintf(stderr, RED "ERROR: La función del constructor no se ha declarado para la clase '%s'. Asegúrate de que tu fase de declaración de tipos la cree (Línea: %d).\n" RESET, class_name, node->line);
+//         exit(1);
+//     }
+
+//     // El primer argumento para el constructor es siempre la propia instancia ('this')
+//     // Los argumentos restantes son los que se pasaron a 'new A(13)'
+//     int total_constructor_args = node->data.type_node.arg_count + 1; // +1 para el puntero 'this'
+//     LLVMValueRef *constructor_call_args = (LLVMValueRef *)malloc(total_constructor_args * sizeof(LLVMValueRef));
+//     if (!constructor_call_args) {
+//         perror(RED "Error en malloc para argumentos del constructor" RESET);
+//         exit(EXIT_FAILURE);
+//     }
+
+//     constructor_call_args[0] = instance; // 'this'
+
+//     // Generar el código LLVM para cada argumento pasado a 'new A(13)'
+//     for (int i = 0; i < node->data.type_node.arg_count; i++)
+//     {
+//         // Usa codegen_accept para manejar cualquier tipo de expresión (literal, variable, operación, etc.)
+//         LLVMValueRef arg_val_llvm = codegen_accept(v, node->data.type_node.args[i]);
+//         if (!arg_val_llvm) {
+//             fprintf(stderr, RED "ERROR: Fallo al generar código para el argumento %d del constructor (Línea: %d).\n" RESET, i, node->data.type_node.args[i]->line);
+//             free(constructor_call_args);
+//             exit(1);
+//         }
+//         constructor_call_args[i + 1] = arg_val_llvm;
+//     }
+
+//     // Realizar la llamada a la función del constructor
+//     LLVMBuildCall2(v->ctx->builder, LLVMGetFunctionType(type_info->constructor_func),
+//                    type_info->constructor_func, constructor_call_args,
+//                    total_constructor_args, ""); // El constructor es void, no se necesita nombre de retorno
+
+//     free(constructor_call_args); // Liberar la memoria de los argumentos
+
+//     fprintf(stderr, YELLOW "5-DEBUG: Constructor explícito llamado para la clase '%s'.\n" RESET, class_name);
+
+//     LLVMDisposeTargetData(target_data);
+//     return instance; // Devolver el puntero a la instancia recién creada
+// }
 
 // // FASE 5: codegen_type_instance (Genera el LLVM IR para la creación de una instancia de un tipo)
 // LLVMValueRef codegen_type_instance(LLVMVisitor* v, ASTNode* node) {

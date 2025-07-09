@@ -101,6 +101,187 @@ LLVMValueRef codegen_attr_getter(LLVMVisitor* v,ASTNode* node)
 }
 
 
+
+
+
+// LLVMValueRef codegen_attr_getter(LLVMVisitor *v, ASTNode *node)
+// {
+//     fprintf(stderr, RED "CODEGEN_ATTR_GETTER\n" RESET);
+
+//     // El 'object' es la expresión base, por ejemplo, 'x' en 'x.prop'
+//     LLVMValueRef object_instance_ptr = codegen_accept(v, node->data.attr_access_node.object);
+//     if (!object_instance_ptr)
+//     {
+//         fprintf(stderr, RED "Error: Fallo al generar código para el objeto en el getter de atributo (Línea: %d).\n" RESET, node->line);
+//         exit(1);
+//     }
+
+//     const char *attr_name = node->data.attr_access_node.member_name; // 'x' en 'obj.x'
+
+//     // Obtener el tipo de la instancia del objeto.
+//     // Esto es crucial para encontrar la LLVMUserTypeInfo correcta.
+//     // Asumiendo que object_instance_ptr es de tipo %ClassName*
+//     LLVMTypeRef obj_ptr_type = LLVMTypeOf(object_instance_ptr);
+//     if (LLVMGetTypeKind(obj_ptr_type) != LLVMPointerTypeKind) {
+//         fprintf(stderr, RED "Error: El objeto para el getter de atributo no es un puntero (Línea: %d).\n" RESET, node->line);
+//         exit(1);
+//     }
+//     LLVMTypeRef obj_struct_type = LLVMGetElementType(obj_ptr_type);
+//     const char* obj_type_name = LLVMGetStructName(obj_struct_type);
+
+//     LLVMUserTypeInfo *obj_type_info = find_user_type(v->ctx, obj_type_name);
+//     if (!obj_type_info)
+//     {
+//         fprintf(stderr, RED "Error: Información de tipo para el objeto '%s' no encontrada para el atributo '%s' (Línea: %d).\n" RESET, obj_type_name, attr_name, node->line);
+//         exit(1);
+//     }
+
+//     // Encontrar la información del miembro usando su nombre
+//     LLVMTypeMemberInfo *member_info = find_member_info(obj_type_info, attr_name);
+//     if (!member_info)
+//     {
+//         fprintf(stderr, RED "Error: Miembro de datos '%s' no encontrado en la clase '%s' (Línea: %d).\n" RESET, attr_name, obj_type_name, node->line);
+//         exit(1);
+//     }
+
+//     // Obtener un puntero al campo del miembro específico
+//     // El índice `member_info->index` ya debería tener en cuenta el ID y el puntero a la vtable.
+//     LLVMValueRef member_ptr = LLVMBuildStructGEP2(v->ctx->builder, obj_type_info->struct_type, object_instance_ptr, member_info->index, "member_ptr");
+
+//     // Cargar el valor del puntero del miembro
+//     LLVMValueRef loaded_value = LLVMBuildLoad2(v->ctx->builder, member_info->llvm_type, member_ptr, attr_name);
+
+//     fprintf(stderr, GREEN "Getter generado con éxito para '%s.%s'.\n" RESET, obj_type_name, attr_name);
+//     return loaded_value;
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 LLVMValueRef codegen_method_getter(LLVMVisitor *v, ASTNode *node)
 {
     fprintf(stderr, RED "Estoy en el CODEGEN_METHOD_GETTER_90\n" RESET);
