@@ -44,7 +44,7 @@ void compile_to_llvm(ASTNode *ast, const char *filename)
     visitor.types.type_dec = codegen_type_dec; // Placeholder, make_body_type_dec hace el trabajo
     visitor.types.type_instance = codegen_type_instance;
     visitor.attrs.attr_getter = codegen_attr_getter;
-    //  visitor.attrs.attr_setter = codegen_attr_setter;
+    visitor.attrs.attr_setter = codegen_attr_setter;
     visitor.attrs.method_getter = codegen_method_getter;
 
     // Declara funciones built-in (malloc, printf, etc.)

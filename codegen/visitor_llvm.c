@@ -7,6 +7,8 @@
 
 LLVMValueRef codegen_accept(LLVMVisitor *visitor, ASTNode *node)
 {
+
+    fprintf(stderr,"estamoe ne le codegen accept\n");
     if (!node)
         return 0;
 
@@ -24,7 +26,7 @@ LLVMValueRef codegen_accept(LLVMVisitor *visitor, ASTNode *node)
     case NODE_VARIABLE:   
         fprintf(stderr,"JABEL RESENDIZ AGUIRRE\n");
         LLVMValueRef c =visitor->basic.variable(visitor, node);
-    fprintf(stderr,"2222222222222222222222");
+        fprintf(stderr,"2222222222222222222222");
         return c;
     case NODE_BOOLEAN:
         return visitor->basic.boolean(visitor, node);
@@ -33,6 +35,7 @@ LLVMValueRef codegen_accept(LLVMVisitor *visitor, ASTNode *node)
         return visitor->expr.binary(visitor, node);
         
     case NODE_ASSIGNMENT:
+    case NODE_D_ASSIGNMENT:
         fprintf(stderr, "JABEL RESENDIZ AGUIRRE\n");
         return visitor->expr.assignment(visitor, node);
 
@@ -70,9 +73,11 @@ LLVMValueRef codegen_accept(LLVMVisitor *visitor, ASTNode *node)
         return visitor->attrs.attr_getter(visitor,node);
     
     case NODE_TYPE_SET_ATTR:
+        fprintf(stderr,"Vamos a entrar al codegen type set attr\n");
         return visitor->attrs.attr_setter(visitor,node);
     
     default:
+        fprintf(stderr,"No encontramos ne le codegen accept \n");
         exit(1);
     }
 }

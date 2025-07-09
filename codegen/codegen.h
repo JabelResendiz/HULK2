@@ -75,7 +75,7 @@ LLVMValueRef codegen_type_dec(LLVMVisitor* v,ASTNode*node);
 // void generate_type_methods(LLVMVisitor *v, const char *type_name, LLVMTypeRef struct_type, ASTNode *type_node);
 
 LLVMValueRef codegen_type_instance(LLVMVisitor* v, ASTNode* node);
-// LLVMValueRef codegen_attr_setter(LLVMVisitor*v , ASTNode* node);
+LLVMValueRef codegen_attr_setter(LLVMVisitor*v , ASTNode* node);
 LLVMValueRef codegen_attr_getter(LLVMVisitor* v,ASTNode* node);
 
 LLVMValueRef codegen_method_getter(LLVMVisitor* v, ASTNode* node);
