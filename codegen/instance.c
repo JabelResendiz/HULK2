@@ -74,10 +74,42 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
 
     fprintf(stderr, YELLOW "4-DEBUG\n" RESET);
 
-    for (int i = 0; i < type_info->num_data_members; i++)
-    {
-        fprintf(stderr, RED "el indice es type_info de nombre %s \n" RESET, current_member_info_init[i]->name);
-    }
+    // for (int i = 0; i < type_info->num_data_members; i++)
+    // {
+    //     LLVMTypeMemberInfo *member_info = type_info->members[i];
+
+    //     fprintf(stderr, "  Procesando miembro '%s' (indice LLVM: %d).\n", member_info->name, member_info->index);
+
+    //     if (!member_info->default_value_node)
+    //     {
+    //         fprintf(stderr, RED "ERROR FATAL: member_info->default_value_node es NULL para miembro '%s'!\n" RESET, member_info->name);
+    //         exit(1);
+    //     }
+
+    //     LLVMValueRef initial_val_llvm = codegen_accept(v, member_info->default_value_node);
+
+    //     if (!initial_val_llvm)
+    //     {
+    //         fprintf(stderr, RED "ERROR: Fallo al generar LLVMValue para el valor inicial del miembro '%s'. codegen_accept devolvió NULL.\n" RESET, member_info->name);
+    //         exit(1);
+    //     }
+
+    //     LLVMValueRef member_field_ptr = LLVMBuildStructGEP2(
+    //         v->ctx->builder,
+    //         type_info->struct_type,
+    //         instance,
+    //         member_info->index,
+    //         member_info->name);
+
+    //     LLVMValueRef store_inst = LLVMBuildStore(v->ctx->builder, initial_val_llvm, member_field_ptr);
+    //     LLVMSetAlignment(store_inst, LLVMABISizeOfType(target_data, member_info->llvm_type));
+
+    //     char *val_str = LLVMPrintValueToString(initial_val_llvm);
+    //     fprintf(stderr, "  Miembro '%s' inicializado con éxito. Valor LLVM: %s\n", member_info->name, val_str);
+    //     LLVMDisposeMessage(val_str);
+    // }
+
+    fprintf(stderr, "Inicialización de todos los miembros de datos completada para '%s'.\n", class_name);
 
     // Asegúrate de que los argumentos del constructor coincidan con los miembros de datos.
     // Esto es una simplificación; en un compilador real, deberías mapear los argumentos del constructor
@@ -87,65 +119,63 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
     {
         ASTNode *constructor_arg_node = node->data.type_node.args[arg_idx];
 
-        // fprintf(stderr,"el nombre del argumento es %s\n");
+        LLVMValueRef arg_val_llvm = codegen_accept(v, constructor_arg_node);
 
-        // LLVMValue ar_val_llvm = codegen_accept(v,constructor_arg_node);
-
-        // if (!arg_val_llvm) {
-        //     fprintf(stderr, RED "ERROR: Fallo al generar código para el argumento %d del constructor (Línea: %d).\n" RESET, i, node->data.type_node.args[i]->line);
-        //     free(constructor_arg_node);
-        //     exit(1);
-        // }
-
-        if (constructor_arg_node->type == NODE_VARIABLE)
+        if (!arg_val_llvm)
         {
-            // arreglar aqui para obtner el valor de la varialbe o mandar el ptr de al ubicacion
-        }
-
-        LLVMValueRef arg_val_llvm = NULL;
-
-        if (constructor_arg_node->return_type)
-        {
-            if (type_equals(constructor_arg_node->return_type, &TYPE_NUMBER))
-            {
-                // Asumo que TYPE_NUMBER mapea a double
-
-                double value = 0;
-
-                fprintf(stderr, GREEN "El valo de value es %d\n" RESET, constructor_arg_node->data.number_value);
-
-                arg_val_llvm = LLVMConstReal(v->ctx->double_type, constructor_arg_node->data.number_value);
-
-                char *store_field_ptr_str = LLVMPrintValueToString(arg_val_llvm); // Get string representation
-                fprintf(stderr, "el store_memeber es %s\n", store_field_ptr_str);
-                LLVMDisposeMessage(store_field_ptr_str); // Free the allocated string
-                fprintf(stderr, "TERMINAMOS\n");
-            }
-            else if (type_equals(constructor_arg_node->return_type, &TYPE_STRING))
-            {
-                // Si es un string, crea una cadena global
-                arg_val_llvm = createGlobalString(v->ctx, constructor_arg_node->data.string_value, "ctor_str_arg");
-                // Asegúrate de que el tipo sea ptr_type (i8*) si tu struct almacena strings como i8*
-                arg_val_llvm = LLVMBuildPointerCast(v->ctx->builder, arg_val_llvm, v->ctx->ptr_type, "str_arg_ptr_cast");
-            }
-            else if (type_equals(constructor_arg_node->return_type, &TYPE_BOOLEAN))
-            { // CORREGIDO: TYPE_BOOLEAN
-                // Asumo que TYPE_BOOLEAN mapea a i1
-                arg_val_llvm = LLVMConstInt(v->ctx->i1_type, constructor_arg_node->data.string_value ? 1 : 0, 0); // Asumiendo boolean_value en ASTNode
-            }
-            else
-            {
-                // Aquí podrías manejar otros tipos (ej. instancias de otras clases)
-                // Esto requeriría una llamada recursiva a codegen_type_instance o codegen_accept
-                fprintf(stderr, RED "ERROR: Tipo de argumento de constructor no soportado para inicialización directa: %s (Línea: %d).\n" RESET, constructor_arg_node->return_type->name, constructor_arg_node->line);
-                exit(1);
-            }
-        }
-        else
-        {
-            fprintf(stderr, RED "ERROR: Argumento de constructor sin tipo computado (Línea: %d).\n" RESET, constructor_arg_node->line);
+            fprintf(stderr, RED "ERROR: Fallo al generar código para el argumento %d del constructor (Línea: %d).\n" RESET, arg_idx, constructor_arg_node->line);
             exit(1);
         }
+
+        // if (constructor_arg_node->type == NODE_VARIABLE)
+        // {
+        //     // arreglar aqui para obtner el valor de la varialbe o mandar el ptr de al ubicacion
+        // }
+
+        // LLVMValueRef arg_val_llvm = NULL;
+
+        // if (constructor_arg_node->return_type)
+        // {
+        //     if (type_equals(constructor_arg_node->return_type, &TYPE_NUMBER))
+        //     {
+        //         // Asumo que TYPE_NUMBER mapea a double
+
+        //         double value = 0;
+
+        //         fprintf(stderr, GREEN "El valo de value es %d\n" RESET, constructor_arg_node->data.number_value);
+
+        //         arg_val_llvm = LLVMConstReal(v->ctx->double_type, constructor_arg_node->data.number_value);
+
+        //         char *store_field_ptr_str = LLVMPrintValueToString(arg_val_llvm); // Get string representation
+        //         fprintf(stderr, "el store_memeber es %s\n", store_field_ptr_str);
+        //         LLVMDisposeMessage(store_field_ptr_str); // Free the allocated string
+        //         fprintf(stderr, "TERMINAMOS\n");
+        //     }
+        //     else if (type_equals(constructor_arg_node->return_type, &TYPE_STRING))
+        //     {
+        //         // Si es un string, crea una cadena global
+        //         arg_val_llvm = createGlobalString(v->ctx, constructor_arg_node->data.string_value, "ctor_str_arg");
+        //         // Asegúrate de que el tipo sea ptr_type (i8*) si tu struct almacena strings como i8*
+        //         arg_val_llvm = LLVMBuildPointerCast(v->ctx->builder, arg_val_llvm, v->ctx->ptr_type, "str_arg_ptr_cast");
+        //     }
+        //     else if (type_equals(constructor_arg_node->return_type, &TYPE_BOOLEAN))
+        //     { // CORREGIDO: TYPE_BOOLEAN
+        //         // Asumo que TYPE_BOOLEAN mapea a i1
+        //         arg_val_llvm = LLVMConstInt(v->ctx->i1_type, constructor_arg_node->data.string_value ? 1 : 0, 0); // Asumiendo boolean_value en ASTNode
+        //     }
+        //     else
+        //     {
+        //         // Aquí podrías manejar otros tipos (ej. instancias de otras clases)
+        //         // Esto requeriría una llamada recursiva a codegen_type_instance o codegen_accept
+        //         fprintf(stderr, RED "ERROR: Tipo de argumento de constructor no soportado para inicialización directa: %s (Línea: %d).\n" RESET, constructor_arg_node->return_type->name, constructor_arg_node->line);
+        //         exit(1);
+        //     }
+        // }
+        // else
+        // {
+        //     fprintf(stderr, RED "ERROR: Argumento de constructor sin tipo computado (Línea: %d).\n" RESET, constructor_arg_node->line);
+        //     exit(1);
+        // }
 
         // Generar la instrucción STORE para el miembro de la clase
         // current_member_info_init->index debe ser el índice del campo LLVM,
@@ -194,104 +224,104 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
     LLVMMethodInfo **current_method_info = type_info->methods;
     fprintf(stderr, YELLOW "8-DEBUG\n" RESET);
 
-    for (int i = 0; i < type_info->num_methods_virtual; i++)
-    {
-        const char *method_name = current_method_info[i]->name;
-        // El vtable_index debería coincidir con el orden en que se definió la vtable.
-        int vtable_index = current_method_info[i]->vtable_index;
+    // for (int i = 0; i < type_info->num_methods_virtual; i++)
+    // {
+    //     const char *method_name = current_method_info[i]->name;
+    //     // El vtable_index debería coincidir con el orden en que se definió la vtable.
+    //     int vtable_index = current_method_info[i]->vtable_index;
 
-        // Obtener el puntero de la función del slot de la vtable
-        LLVMValueRef func_ptr_addr = LLVMBuildStructGEP2(v->ctx->builder, type_info->vtable_struct_type, vtable_ptr_loaded, vtable_index, "func_ptr_addr");
+    //     // Obtener el puntero de la función del slot de la vtable
+    //     LLVMValueRef func_ptr_addr = LLVMBuildStructGEP2(v->ctx->builder, type_info->vtable_struct_type, vtable_ptr_loaded, vtable_index, "func_ptr_addr");
 
-        fprintf(stderr, YELLOW "10-DEBUG\n" RESET);
+    //     fprintf(stderr, YELLOW "10-DEBUG\n" RESET);
 
-        // El method_signature_type viene directamente de la información pre-calculada
-        LLVMTypeRef method_signature_type = current_method_info[i]->llvm_func_type;
+    //     // El method_signature_type viene directamente de la información pre-calculada
+    //     LLVMTypeRef method_signature_type = current_method_info[i]->llvm_func_type;
 
-        if (method_signature_type == NULL)
-        {
-            fprintf(stderr, RED "ESTA CRITICO ESTO\n" RESET);
-        }
+    //     if (method_signature_type == NULL)
+    //     {
+    //         fprintf(stderr, RED "ESTA CRITICO ESTO\n" RESET);
+    //     }
 
-        LLVMValueRef loaded_func_ptr = LLVMBuildLoad2(v->ctx->builder, LLVMPointerType(method_signature_type, 0), func_ptr_addr, "loaded_func_ptr");
-        LLVMSetAlignment(loaded_func_ptr, 8);
+    //     LLVMValueRef loaded_func_ptr = LLVMBuildLoad2(v->ctx->builder, LLVMPointerType(method_signature_type, 0), func_ptr_addr, "loaded_func_ptr");
+    //     LLVMSetAlignment(loaded_func_ptr, 8);
 
-        // Obtener el número de parámetros esperado por la función LLVM
-        unsigned int num_llvm_params = LLVMCountParamTypes(method_signature_type);
-        fprintf(stderr, YELLOW "12-DEBUG: el numero de parametros es %d\n" RESET, num_llvm_params);
+    //     // Obtener el número de parámetros esperado por la función LLVM
+    //     unsigned int num_llvm_params = LLVMCountParamTypes(method_signature_type);
+    //     fprintf(stderr, YELLOW "12-DEBUG: el numero de parametros es %d\n" RESET, num_llvm_params);
 
-        LLVMValueRef *call_args = (LLVMValueRef *)malloc(num_llvm_params * sizeof(LLVMValueRef));
-        fprintf(stderr, YELLOW "11-DEBUG: el numero de parametros es %d\n \n" RESET, num_llvm_params);
+    //     LLVMValueRef *call_args = (LLVMValueRef *)malloc(num_llvm_params * sizeof(LLVMValueRef));
+    //     fprintf(stderr, YELLOW "11-DEBUG: el numero de parametros es %d\n \n" RESET, num_llvm_params);
 
-        if (!call_args)
-        {
-            perror(RED "Error en malloc para call_args" RESET);
-            exit(EXIT_FAILURE);
-        }
+    //     if (!call_args)
+    //     {
+    //         perror(RED "Error en malloc para call_args" RESET);
+    //         exit(EXIT_FAILURE);
+    //     }
 
-        fprintf(stderr, YELLOW "12-DEBUG\n" RESET);
+    //     fprintf(stderr, YELLOW "12-DEBUG\n" RESET);
 
-        // El primer argumento es siempre el puntero 'this' (la instancia actual)
-        call_args[0] = instance;
+    //     // El primer argumento es siempre el puntero 'this' (la instancia actual)
+    //     call_args[0] = instance;
 
-        LLVMTypeRef *expected_param_types = (LLVMTypeRef *)malloc(num_llvm_params * sizeof(LLVMTypeRef));
-        LLVMGetParamTypes(method_signature_type, expected_param_types);
+    //     LLVMTypeRef *expected_param_types = (LLVMTypeRef *)malloc(num_llvm_params * sizeof(LLVMTypeRef));
+    //     LLVMGetParamTypes(method_signature_type, expected_param_types);
 
-        for (int k = 1; k < num_llvm_params; k++)
-        {
-            LLVMTypeRef param_type = expected_param_types[k];
-            if (LLVMGetTypeKind(param_type) == LLVMDoubleTypeKind)
-            {
-                call_args[k] = LLVMConstReal(param_type, 0.0); // Valor por defecto para double
-            }
-            else if (LLVMGetTypeKind(param_type) == LLVMIntegerTypeKind)
-            {
-                call_args[k] = LLVMConstInt(param_type, 0, 0); // Valor por defecto para int
-            }
-            else if (LLVMGetTypeKind(param_type) == LLVMPointerTypeKind)
-            {
-                call_args[k] = LLVMConstNull(param_type); // Valor por defecto para punteros
-            }
-            else
-            {
-                // Otros tipos, maneja según tu lenguaje o pasa un valor indefinido
-                call_args[k] = LLVMGetUndef(param_type);
-            }
-        }
+    //     for (int k = 1; k < num_llvm_params; k++)
+    //     {
+    //         LLVMTypeRef param_type = expected_param_types[k];
+    //         if (LLVMGetTypeKind(param_type) == LLVMDoubleTypeKind)
+    //         {
+    //             call_args[k] = LLVMConstReal(param_type, 0.0); // Valor por defecto para double
+    //         }
+    //         else if (LLVMGetTypeKind(param_type) == LLVMIntegerTypeKind)
+    //         {
+    //             call_args[k] = LLVMConstInt(param_type, 0, 0); // Valor por defecto para int
+    //         }
+    //         else if (LLVMGetTypeKind(param_type) == LLVMPointerTypeKind)
+    //         {
+    //             call_args[k] = LLVMConstNull(param_type); // Valor por defecto para punteros
+    //         }
+    //         else
+    //         {
+    //             // Otros tipos, maneja según tu lenguaje o pasa un valor indefinido
+    //             call_args[k] = LLVMGetUndef(param_type);
+    //         }
+    //     }
 
-        free(expected_param_types);
+    //     free(expected_param_types);
 
-        LLVMValueRef call_result = LLVMBuildCall2(v->ctx->builder, method_signature_type, loaded_func_ptr, call_args, num_llvm_params, "call_result");
-        free(call_args);
+    //     LLVMValueRef call_result = LLVMBuildCall2(v->ctx->builder, method_signature_type, loaded_func_ptr, call_args, num_llvm_params, "call_result");
+    //     free(call_args);
 
-        // --- Impresión del resultado (para depuración) ---
-        // Esto es solo para depuración; en un compilador real, no siempre imprimirías el resultado de una llamada a método.
-        LLVMTypeKind return_kind = LLVMGetTypeKind(LLVMGetReturnType(method_signature_type));
-        if (return_kind == LLVMDoubleTypeKind)
-        {
-            LLVMValueRef format_str_double = createGlobalString(v->ctx, "%lf\n", "format_double_str");
-            LLVMValueRef format_ptr_indices[] = {LLVMConstInt(v->ctx->i64_type, 0, 0), LLVMConstInt(v->ctx->i64_type, 0, 0)};
-            LLVMValueRef format_ptr = LLVMBuildInBoundsGEP2(v->ctx->builder, LLVMGlobalGetValueType(format_str_double), format_str_double, format_ptr_indices, 2, "format_ptr_double");
-            LLVMValueRef printf_args[] = {format_ptr, call_result};
-            LLVMBuildCall2(v->ctx->builder, v->ctx->printf_func_type, v->ctx->printf_func, printf_args, 2, "");
-            fprintf(stderr, "DEBUG: Llamada a método '%s' e impresión de resultado (double).\n", method_name);
-        }
-        else if (return_kind == LLVMIntegerTypeKind)
-        {
-            LLVMValueRef format_ptr_indices[] = {LLVMConstInt(v->ctx->i64_type, 0, 0), LLVMConstInt(v->ctx->i64_type, 0, 0)};
-            LLVMValueRef format_ptr = LLVMBuildInBoundsGEP2(v->ctx->builder, LLVMGlobalGetValueType(v->ctx->format_string_global), v->ctx->format_string_global, format_ptr_indices, 2, "format_ptr_int");
-            LLVMValueRef printf_args[] = {format_ptr, call_result};
-            LLVMBuildCall2(v->ctx->builder, v->ctx->printf_func_type, v->ctx->printf_func, printf_args, 2, "");
-            fprintf(stderr, "DEBUG: Llamada a método '%s' e impresión de resultado (int).\n", method_name);
-        }
-        else if (return_kind == LLVMVoidTypeKind)
-        {
-            fprintf(stderr, "DEBUG: Llamada a método '%s' (void).\n", method_name);
-        }
+    //     // --- Impresión del resultado (para depuración) ---
+    //     // Esto es solo para depuración; en un compilador real, no siempre imprimirías el resultado de una llamada a método.
+    //     LLVMTypeKind return_kind = LLVMGetTypeKind(LLVMGetReturnType(method_signature_type));
+    //     if (return_kind == LLVMDoubleTypeKind)
+    //     {
+    //         LLVMValueRef format_str_double = createGlobalString(v->ctx, "%lf\n", "format_double_str");
+    //         LLVMValueRef format_ptr_indices[] = {LLVMConstInt(v->ctx->i64_type, 0, 0), LLVMConstInt(v->ctx->i64_type, 0, 0)};
+    //         LLVMValueRef format_ptr = LLVMBuildInBoundsGEP2(v->ctx->builder, LLVMGlobalGetValueType(format_str_double), format_str_double, format_ptr_indices, 2, "format_ptr_double");
+    //         LLVMValueRef printf_args[] = {format_ptr, call_result};
+    //         LLVMBuildCall2(v->ctx->builder, v->ctx->printf_func_type, v->ctx->printf_func, printf_args, 2, "");
+    //         fprintf(stderr, "DEBUG: Llamada a método '%s' e impresión de resultado (double).\n", method_name);
+    //     }
+    //     else if (return_kind == LLVMIntegerTypeKind)
+    //     {
+    //         LLVMValueRef format_ptr_indices[] = {LLVMConstInt(v->ctx->i64_type, 0, 0), LLVMConstInt(v->ctx->i64_type, 0, 0)};
+    //         LLVMValueRef format_ptr = LLVMBuildInBoundsGEP2(v->ctx->builder, LLVMGlobalGetValueType(v->ctx->format_string_global), v->ctx->format_string_global, format_ptr_indices, 2, "format_ptr_int");
+    //         LLVMValueRef printf_args[] = {format_ptr, call_result};
+    //         LLVMBuildCall2(v->ctx->builder, v->ctx->printf_func_type, v->ctx->printf_func, printf_args, 2, "");
+    //         fprintf(stderr, "DEBUG: Llamada a método '%s' e impresión de resultado (int).\n", method_name);
+    //     }
+    //     else if (return_kind == LLVMVoidTypeKind)
+    //     {
+    //         fprintf(stderr, "DEBUG: Llamada a método '%s' (void).\n", method_name);
+    //     }
 
-        // Avanza al siguiente método en la lista
-        // current_method_info = current_method_info->next;
-    }
+    //     // Avanza al siguiente método en la lista
+    //     // current_method_info = current_method_info->next;
+    // }
 
     fprintf(stderr, YELLOW "9-DEBUG\n" RESET);
 

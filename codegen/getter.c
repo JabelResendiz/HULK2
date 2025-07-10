@@ -302,20 +302,57 @@ LLVMValueRef codegen_method_getter(LLVMVisitor *v, ASTNode *node)
     // Asegúrate de que el tipo de retorno de la expresión del objeto esté establecido en el AST
     // (ej. si 'miObjeto' es de tipo 'ClaseA', entonces node->data.op_node.left->return_type->name debería ser "ClaseA")
     const char *object_type_name = node->data.op_node.left->return_type->name;
+
+    const char* object_dynamic_name = node->data.op_node.left->dynamic_type->name;
+
+    fprintf(stderr,GREEN "el tipo real es %s y el dinmaico es %s\n" RESET, object_type_name,object_dynamic_name);
+
+
     LLVMUserTypeInfo *type_info = find_user_type(v->ctx, object_type_name);
     if (!type_info)
     {
         fprintf(stderr, RED "Error: No se encontró la información de tipo para '%s'.\n" RESET, object_type_name);
         return NULL;
     }
+
+    LLVMUserTypeInfo *type_dynamic_info = find_user_type(v->ctx, object_dynamic_name);
+    if (!type_dynamic_info)
+    {
+        fprintf(stderr, RED "Error: No se encontró la información de tipo dinamico para '%s'.\n" RESET, object_dynamic_name);
+        return NULL;
+    }
+
+
     fprintf(stderr, "2-HASTA AQUI TODO BIEN con tipo de objeto: %s\n", type_info->name);
 
     // El nombre del método se extrae de la parte derecha (la llamada al método)
     const char *method_name = node->data.op_node.right->data.func_node.name;
-    LLVMMethodInfo *method_info = find_method_info(type_info, method_name);
+
+   
+
+    const char* real_name_method = NULL;
+
+    if(strcmp(object_type_name,object_dynamic_name))
+    {
+        const char* base_function = delete_underscore_from_str(method_name,type_dynamic_info->name);
+
+        real_name_method = concat_str_with_underscore(type_info->name,base_function);
+
+        free(base_function);
+    }
+    
+    else 
+    {
+        real_name_method = method_name;
+    }
+
+     // method_name : _chihuaha_bark
+    // type_info : dog
+    // type_dyanmic_info : chihuahua
+    LLVMMethodInfo *method_info = find_method_info(type_info, real_name_method);
     if (!method_info)
     {
-        fprintf(stderr, RED "Error: Método '%s' no encontrado para el tipo '%s'.\n" RESET, method_name, object_type_name);
+        fprintf(stderr, RED "Error: Método '%s' no encontrado para el tipo '%s'.\n" RESET, real_name_method, object_type_name);
         return NULL;
     }
     fprintf(stderr, "3-HASTA AQUI TODO BIEN, método: %s encontrado en el índice: %d\n", method_info->name, method_info->vtable_index);
@@ -358,7 +395,7 @@ LLVMValueRef codegen_method_getter(LLVMVisitor *v, ASTNode *node)
     if (ast_arg_count != (num_llvm_params - 1))
     {
         fprintf(stderr, RED "Error: Número de argumentos para el método '%s' no coincide (esperado %d, recibido %d).\n" RESET,
-                method_name, num_llvm_params - 1, ast_arg_count);
+                real_name_method, num_llvm_params - 1, ast_arg_count);
         free(call_args);
         return NULL;
     }
@@ -369,7 +406,7 @@ LLVMValueRef codegen_method_getter(LLVMVisitor *v, ASTNode *node)
         call_args[i + 1] = codegen_accept(v, node->data.op_node.right->data.func_node.args[i]);
         if (!call_args[i + 1])
         {
-            fprintf(stderr, RED "Error: No se pudo generar el argumento %d para el método '%s'.\n" RESET, i + 1, method_name);
+            fprintf(stderr, RED "Error: No se pudo generar el argumento %d para el método '%s'.\n" RESET, i + 1, real_name_method);
             free(call_args);
             return NULL;
         }

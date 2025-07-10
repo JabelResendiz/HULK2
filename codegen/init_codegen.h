@@ -16,6 +16,7 @@ typedef struct LLVMTypeMemberInfo
     char *name;
     LLVMTypeRef llvm_type;
     int index;
+    ASTNode* default_value_node;
     // struct LLVMTypeMemberInfo* next;
 } LLVMTypeMemberInfo;
 
@@ -163,5 +164,9 @@ void llvm_handle_stack_overflow(
     ASTNode *node);
 
 LLVMValueRef createGlobalString(LLVMCoreContext *ctx, const char *str, const char *name);
+
+
+int get_max_type_id(LLVMCoreContext* ctx);
+LLVMUserTypeInfo** get_type_info_array(LLVMCoreContext* ctx);
 
 #endif

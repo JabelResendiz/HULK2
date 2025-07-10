@@ -508,6 +508,7 @@ LLVMTypeRef *build_struct_fields(LLVMCoreContext *ctx, ASTNode *node, LLVMUserTy
         new_member->name = concat_str_with_underscore(type_info->name, base_member_name);
         new_member->llvm_type = parent_info->members[i]->llvm_type;
         new_member->index = parent_info->members[i]->index;
+        new_member->default_value_node = parent_info->members[i]->default_value_node;
 
         type_info->members[i] = new_member;
     }
@@ -532,7 +533,7 @@ LLVMTypeRef *build_struct_fields(LLVMCoreContext *ctx, ASTNode *node, LLVMUserTy
             member->index = index;
             struct_fields[index] = member_llvm_type;
             member->llvm_type = member_llvm_type;
-
+            member->default_value_node = child->data.op_node.right;
             type_info->members[index-2] = member;
             index++;
         }
@@ -627,4 +628,60 @@ LLVMValueRef *build_vtable_initializer(LLVMCoreContext *ctx, ASTNode *node, LLVM
     }
 
     return vtable_initializer_values;
+}
+
+
+
+int get_max_type_id(LLVMCoreContext* ctx)
+{
+    
+    return ctx->user_types->id;
+}
+
+
+LLVMUserTypeInfo** get_type_info_array(LLVMCoreContext* ctx)
+{
+    LLVMUserTypeInfo* types = ctx->user_types;
+    int cantidad =0;
+
+    while(types)
+    {
+        cantidad++;
+        types = types->next;
+    }
+
+    LLVMUserTypeInfo** array_types = (LLVMUserTypeInfo**) malloc(cantidad*sizeof(LLVMUserTypeInfo*));
+
+    LLVMUserTypeInfo* new_types = ctx->user_types;
+
+    for(int i=0;i<cantidad;i++)
+    {
+        LLVMUserTypeInfo* new_types2 = malloc(sizeof(LLVMUserTypeInfo));
+        new_types2->id = new_types->id;
+        new_types2->name = strdup(new_types->name);
+        new_types2->struct_type = new_types;
+        new_types2->vtable_struct_type =  new_types->vtable_struct_type;
+        new_types2->class_ptr_type= new_types->class_ptr_type;
+        new_types2->vtable_ptr_type=new_types->vtable_ptr_type;
+        new_types2->vtable_global=new_types->vtable_global;
+        new_types2->vtable_slot_ptr_types=new_types->vtable_slot_ptr_types;
+        new_types2->vtable_slot_types=new_types->vtable_slot_types;
+        new_types2->struct_fields= new_types->struct_fields;
+        new_types2->vtable_initializer_values=new_types->vtable_initializer_values;
+
+        new_types2->members =new_types->members ;
+        new_types2->num_data_members= new_types->num_data_members;
+
+        new_types2->methods=new_types->methods;
+        new_types2->num_methods_virtual= new_types->num_methods_virtual;
+
+        new_types2->parent_info=new_types->parent_info;
+        new_types2->next =new_types->next ;
+        array_types[i] = new_types2;
+
+        new_types = new_types->next;
+        
+    }
+
+    return array_types;
 }

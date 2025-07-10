@@ -38,8 +38,8 @@ typedef struct {
 typedef struct {
     LLVMValueRef (*type_dec)(LLVMVisitor*, ASTNode*);
     LLVMValueRef (*type_instance)(LLVMVisitor*, ASTNode*);
-    // LLVMValueRef (*casting)(Visitor*, ASTNode*);
-    // LLVMValueRef (*test_type)(Visitor*, ASTNode*);
+    LLVMValueRef (*casting)(LLVMVisitor*, ASTNode*);
+    LLVMValueRef (*test_type)(LLVMVisitor*, ASTNode*);
 } LLVM_TypeVisitors;
 
 typedef struct {

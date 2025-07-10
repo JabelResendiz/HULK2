@@ -90,4 +90,9 @@ void find_type_dec(LLVMVisitor *v, ASTNode *node);
 // void codegen_method_body(LLVMVisitor *v, LLVMUserTypeInfo *type_info, ASTNode *method_decl_node, LLVMValueRef llvm_func);
 void build_vtable_table(LLVMVisitor *v, ASTNode *node);
 
+
+LLVMValueRef  codegen_is_type(LLVMVisitor* v,ASTNode* node);
+//LLVMValueRef  codegen_as_type(LLVMVisitor* v,ASTNode* node);
+
+
 #endif

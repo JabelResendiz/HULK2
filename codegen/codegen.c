@@ -46,7 +46,8 @@ void compile_to_llvm(ASTNode *ast, const char *filename)
     visitor.attrs.attr_getter = codegen_attr_getter;
     visitor.attrs.attr_setter = codegen_attr_setter;
     visitor.attrs.method_getter = codegen_method_getter;
-
+    //visitor.types.casting = codegen_as_type;
+    visitor.types.test_type = codegen_is_type;
     // Declara funciones built-in (malloc, printf, etc.)
     llvm_declare_builtins(ctx);
 

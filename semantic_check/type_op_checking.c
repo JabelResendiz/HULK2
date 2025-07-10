@@ -402,64 +402,150 @@ void visit_attr_setter(Visitor *v, ASTNode *node)
     node->derivations = add_node_list(member, node->derivations);
 }
 
-// method to visit base function
+// // method to visit base function
+// void visit_base_func(Visitor *v, ASTNode *node)
+// {
+//     ASTNode *args = node->data.func_node.args;
+//     char *current_func = v->current_function;
+//     Type *current_type = v->current_type;
+
+//     if (!current_func)
+//     {
+//         node->return_type = &TYPE_ERROR;
+//         node->dynamic_type = &TYPE_ERROR;
+//         report_error(
+//             v, "Keyword 'base' only can be used when referring to an ancestor"
+//                " implementation of a function. Line: %d.",
+//             node->line);
+//         return;
+//     }
+
+//     char *f_name = find_base_func_dec(current_type, current_func);
+
+//     if (!f_name)
+//     {
+//         if (!is_builtin_type(current_type->parent))
+//         {
+//             ContextItem *item = find_item_in_type_hierarchy(
+//                 current_type->parent->dec->context, current_func, current_type->parent, 1);
+
+//             if (item)
+//             {
+//                 accept(v, item->declaration);
+//                 f_name = item->declaration->data.func_node.name;
+//             }
+//         }
+
+//         if (!f_name)
+//         {
+//             node->return_type = &TYPE_ERROR;
+//             node->dynamic_type = &TYPE_ERROR;
+//             report_error(
+//                 v, "No ancestor of type '%s' has a definition for '%s'. Line: %d.",
+//                 current_type->name,
+//                 delete_underscore_from_str(current_func, current_type->name), node->line);
+//             return;
+//         }
+//     }
+
+//     // helper node that can be checked as a function call
+//     ASTNode *call = create_func_call_node(f_name, args, node->data.func_node.arg_count);
+//     call->context->parent = node->context;
+//     call->scope->parent = node->scope;
+//     call->line = node->line;
+
+//     check_function_call(v, call, current_type->parent);
+//     node->derivations = add_node_list(call, node->derivations);
+//     node->return_type = &TYPE_ERROR;
+//     node->dynamic_type = &TYPE_ERROR;
+//     report_error(
+//         v, "Unfortunately, 'base' call is not available in this version of the compiler. Line: %d.",
+//         node->line);
+//     node->data.func_node.name = f_name;
+// }
+
 void visit_base_func(Visitor *v, ASTNode *node)
 {
-    ASTNode *args = node->data.func_node.args;
-    char *current_func = v->current_function;
-    Type *current_type = v->current_type;
+    ASTNode *base_call_args = node->data.func_node.args;
 
-    if (!current_func)
+    unsigned int base_call_arg_count = node->data.func_node.arg_count;
+
+    // v->current_function debe contener el nombre completo del método actual (ej. "_Knight_name")
+    // v->current_type debe contener la información del tipo de la clase actual (ej. Knight)
+    char *current_method_llvm_name = v->current_function;
+    Type *current_class_type = v->current_type;
+
+    // 1. Verificaciones iniciales: ¿Estamos dentro de un método?
+    if (!current_method_llvm_name || !current_class_type || !current_class_type->parent)
     {
         node->return_type = &TYPE_ERROR;
         node->dynamic_type = &TYPE_ERROR;
-        report_error(
-            v, "Keyword 'base' only can be used when referring to an ancestor"
-               " implementation of a function. Line: %d.",
-            node->line);
+        report_error(v, "La palabra clave 'base' solo se puede usar dentro de un método en una clase que herede de otra. Línea: %d.", node->line);
         return;
     }
 
-    char *f_name = find_base_func_dec(current_type, current_func);
+    // Extraer el nombre "original" del método (sin prefijo de clase, ej. "name")
+    // Asumiendo que tus nombres de funciones LLVM son como "_ClassName_MethodName"
+    char *original_method_name = NULL;
+    // Debes tener una forma de mapear de _ClassName_MethodName a MethodName
+    // Una opción es que current_method_info ya contenga el nombre original
+    // o que lo pases al nodo AST de 'base' al parsearlo.
+    // Por simplicidad aquí, asumiremos que node->data.func_node.name ya tiene el nombre "name" (sin prefijo)
+    // Si no es así, necesitarías extraerlo de current_method_llvm_name (ej. buscar el último '_').
+    original_method_name = node->data.func_node.name; // Asumiendo que el parser lo establece.
 
-    if (!f_name)
+    if (!original_method_name)
     {
-        if (!is_builtin_type(current_type->parent))
-        {
-            ContextItem *item = find_item_in_type_hierarchy(
-                current_type->parent->dec->context, current_func, current_type->parent, 1);
-
-            if (item)
-            {
-                accept(v, item->declaration);
-                f_name = item->declaration->data.func_node.name;
-            }
-        }
-
-        if (!f_name)
-        {
-            node->return_type = &TYPE_ERROR;
-            node->dynamic_type = &TYPE_ERROR;
-            report_error(
-                v, "No ancestor of type '%s' has a definition for '%s'. Line: %d.",
-                current_type->name,
-                delete_underscore_from_str(current_func, current_type->name), node->line);
-            return;
-        }
+        node->return_type = &TYPE_ERROR;
+        node->dynamic_type = &TYPE_ERROR;
+        report_error(v, "Error interno: No se pudo determinar el nombre original del método para la llamada a 'base'. Línea: %d.", node->line);
+        return;
     }
 
-    // helper node that can be checked as a function call
-    ASTNode *call = create_func_call_node(f_name, args, node->data.func_node.arg_count);
-    call->context->parent = node->context;
-    call->scope->parent = node->scope;
-    call->line = node->line;
+     // 2. Encontrar el método correspondiente en la clase padre
+    Type *parent_type = current_class_type->parent;
+    ContextItem *base_method_item = find_item_in_type_hierarchy(parent_type->dec->context, original_method_name, parent_type, 1);
 
-    check_function_call(v, call, current_type->parent);
-    node->derivations = add_node_list(call, node->derivations);
-    node->return_type = &TYPE_ERROR;
-    node->dynamic_type = &TYPE_ERROR;
-    report_error(
-        v, "Unfortunately, 'base' call is not available in this version of the compiler. Line: %d.",
-        node->line);
-    node->data.func_node.name = f_name;
+    // if (!base_method_item || base_method_item->kind != CONTEXT_FUNCTION)
+    // {
+    //     node->return_type = &TYPE_ERROR;
+    //     node->dynamic_type = &TYPE_ERROR;
+    //     report_error(v, "No se encontró un método '%s' en la jerarquía de la clase padre '%s'. Línea: %d.",
+    //                  original_method_name, parent_type->name, node->line);
+    //     return;
+    // }
+
+    ASTNode *base_method_declaration_node = base_method_item->declaration;
+    // Asegúrate de que el nodo de declaración del método base ha sido visitado
+    // para que sus tipos de parámetros y retorno estén resueltos.
+    accept(v, base_method_declaration_node); // Esto resuelve el return_type del método base
+
+    // 3. Validar los argumentos pasados a 'base()' contra la firma del método base
+    // Vamos a crear un "nodo de llamada simulado" para reusar check_function_call.
+    ASTNode *simulated_call_node = create_func_call_node(original_method_name, base_call_args, base_call_arg_count);
+    simulated_call_node->context = node->context; // Usa el contexto actual de la llamada a base
+    simulated_call_node->scope = node->scope;
+    simulated_call_node->line = node->line;
+    // La clave es pasar el tipo del *padre* para la verificación de la función.
+    check_function_call(v, simulated_call_node, parent_type); // Ahora check_function_call sabe que buscar en 'parent_type'
+
+    // Si check_function_call encuentra un error, ya lo reportará y el return_type de simulated_call_node será TYPE_ERROR.
+    if (simulated_call_node->return_type == &TYPE_ERROR) {
+        node->return_type = &TYPE_ERROR;
+        node->dynamic_type = &TYPE_ERROR;
+        free_ast(simulated_call_node); // Libera el nodo temporal
+        return;
+    }
+
+    // 4. Establecer el tipo de retorno del nodo 'base'
+    node->return_type = simulated_call_node->return_type;
+    node->dynamic_type = simulated_call_node->dynamic_type;
+
+    // Guardar el nombre de la función LLVM del método base para la generación de código.
+    // Esto es crucial para que codegen_base_func_call sepa qué función LLVM llamar directamente.
+    // Puedes almacenar esto en algún campo de 'node->data.func_node'
+    //node->data.func_node.llvm_func_name = base_method_declaration_node->data.func_node.llvm_func_name;
+
+    free_ast(simulated_call_node); // Libera el nodo temporal
+    // Ya no reportamos un error aquí. Si llegamos hasta aquí, la base call es semánticamente válida.
 }

@@ -49,7 +49,7 @@ $(EXEC): lex.yy.o y.tab.o $(AST_DIR)/ast.o $(SRC_DIR)/main.o \
 	$(VISITOR_DIR)/visitor.o \
 	$(CODEGEN_DIR)/basic.o $(CODEGEN_DIR)/codegen.o $(CODEGEN_DIR)/control.o $(CODEGEN_DIR)/function.o $(CODEGEN_DIR)/getter.o \
 	$(CODEGEN_DIR)/init_codegen.o $(CODEGEN_DIR)/instance.o $(CODEGEN_DIR)/op.o $(CODEGEN_DIR)/visitor_llvm.o $(CODEGEN_DIR)/types.o\
-	$(CODEGEN_DIR)/setter.o \
+	$(CODEGEN_DIR)/setter.o $(CODEGEN_DIR)/cast.o\
 	$(TYPE_DIR)/type.o | $(BUILD_DIR)
 
 	@printf "$(CYAN)🔗 Getting ready...$(RESET)\n";
@@ -118,6 +118,9 @@ $(CODEGEN_DIR)/op.o: $(CODEGEN_DIR)/op.c
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(CODEGEN_DIR)/setter.o: $(CODEGEN_DIR)/setter.c 
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(CODEGEN_DIR)/cast.o: $(CODEGEN_DIR)/cast.c 
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 # AST
