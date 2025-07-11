@@ -46,8 +46,10 @@ void compile_to_llvm(ASTNode *ast, const char *filename)
     visitor.attrs.attr_getter = codegen_attr_getter;
     visitor.attrs.attr_setter = codegen_attr_setter;
     visitor.attrs.method_getter = codegen_method_getter;
-    //visitor.types.casting = codegen_as_type;
+    // visitor.types.casting = codegen_as_type;
     visitor.types.test_type = codegen_is_type;
+    visitor.attrs.base_func = codegen_base_function;
+
     // Declara funciones built-in (malloc, printf, etc.)
     llvm_declare_builtins(ctx);
 
@@ -67,7 +69,7 @@ void compile_to_llvm(ASTNode *ast, const char *filename)
 
         for (int i = 0; i < current_user_type->num_methods_virtual; i++)
         {
-            codegen_dec_method(&visitor, current_user_type->methods[i]->node,current_user_type);
+            codegen_dec_method(&visitor, current_user_type->methods[i]->node, current_user_type);
         }
 
         current_user_type = current_user_type->next;
@@ -305,6 +307,7 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
 
     const char *type_name = node->data.type_node.name;
     LLVMUserTypeInfo *parent_info = NULL;
+    int parent_id = -1;
 
     if (strcmp(node->data.type_node.parent_name, ""))
     {
@@ -315,6 +318,7 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
             fprintf(stderr, RED "Error: Tipo padre '%s' no encontrado para la clase '%s'.\n" RESET, node->data.type_node.parent_name, type_name);
             exit(EXIT_FAILURE);
         }
+        parent_id = parent_info->id;
     }
     else
     {
@@ -325,6 +329,8 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
     type_info->id = v->ctx->user_types ? (v->ctx->user_types->id + 1) : 0;
     type_info->name = strdup(type_name);
     type_info->parent_info = parent_info;
+
+    //add_runtime_type_entry(v->ctx, type_info->id, parent_id);
 
     // numero de metodos y de asignaciones de mi tipo
     int function_context = 0;
@@ -389,7 +395,7 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
     type_info->num_data_members = assigments_context + parent_assigments;
     type_info->num_methods_virtual = function_context + parent_methods - overriden_methods;
 
-    fprintf(stderr, "Een el tipo %s el  numero de metodos de virtuales es %d y de miembros es %d\n", type_info->name, type_info->num_methods_virtual, type_info->num_data_members);
+    fprintf(stderr, "En el tipo %s el  numero de metodos de virtuales es %d y de miembros es %d\n", type_info->name, type_info->num_methods_virtual, type_info->num_data_members);
     type_info->methods = (LLVMMethodInfo **)malloc(type_info->num_methods_virtual * sizeof(LLVMMethodInfo *));
     type_info->members = (LLVMTypeMemberInfo **)malloc(type_info->num_data_members * sizeof(LLVMTypeMemberInfo *));
 
@@ -436,12 +442,12 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
             // 4. Agregar los tipos de los apramtros explcitios
             for (int k = 0; k < num_explicit_params; k++)
             {
-                llvm_param_types[k+1] = type_to_llvm(v->ctx,child->data.func_node.args[k]->return_type);
+                llvm_param_types[k + 1] = type_to_llvm(v->ctx, child->data.func_node.args[k]->return_type);
             }
 
             // 5. Crear el tipo de la funcion LLVM con el array de parametros correctos
-            LLVMTypeRef method_func_type = LLVMFunctionType(llvm_ret_type,llvm_param_types,total_llvm_params,0);
-            
+            LLVMTypeRef method_func_type = LLVMFunctionType(llvm_ret_type, llvm_param_types, total_llvm_params, 0);
+
             vtable_slot_types[j] = method_func_type;
 
             LLVMTypeRef method_func_ptr_type = LLVMPointerType(method_func_type, 0); // Puntero a ese tipo de función
@@ -476,12 +482,12 @@ void build_vtable_table(LLVMVisitor *v, ASTNode *node)
             // 4. Agregar los tipos de los apramtros explcitios
             for (int k = 0; k < num_explicit_params; k++)
             {
-                llvm_param_types[k+1] = type_to_llvm(v->ctx,child->data.func_node.args[k]->return_type);
+                llvm_param_types[k + 1] = type_to_llvm(v->ctx, child->data.func_node.args[k]->return_type);
             }
 
             // 5. Crear el tipo de la funcion LLVM con el array de parametros correctos
-            LLVMTypeRef method_func_type = LLVMFunctionType(llvm_ret_type,llvm_param_types,total_llvm_params,0);
-            
+            LLVMTypeRef method_func_type = LLVMFunctionType(llvm_ret_type, llvm_param_types, total_llvm_params, 0);
+
             vtable_slot_types[index] = method_func_type;
 
             LLVMTypeRef method_func_ptr_type = LLVMPointerType(method_func_type, 0); // Puntero a ese tipo de función
@@ -567,6 +573,15 @@ void find_type_dec(LLVMVisitor *v, ASTNode *node)
     }
 
     fprintf(stderr, "ESTOY FINALIZANDO FIND_TYPE_DEC QUE SEA ASI TAMBIEN\n");
+
+    // finalize_global_type_info_table(v->ctx);
+
+    // v->ctx->is_subtype_llvm_func = create_is_subtype_function(v->ctx);
+    // if (v->ctx->is_subtype_llvm_func == NULL)
+    // {
+    //     fprintf(stderr, RED "Error al crear la función LLVM 'is_subtype'.\n" RESET);
+    //     exit(EXIT_FAILURE);
+    // }
 }
 
 // LLVMValueRef *build_struct_method(LLVMCoreContext *ctx, ASTNode *node, LLVMUserTypeInfo *type_info)

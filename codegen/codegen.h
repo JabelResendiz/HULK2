@@ -72,7 +72,6 @@ LLVMValueRef handle_object_operation(LLVMVisitor *v, LLVMValueRef left, LLVMValu
 
 // DE TIPOS
 LLVMValueRef codegen_type_dec(LLVMVisitor* v,ASTNode*node);
-// void generate_type_methods(LLVMVisitor *v, const char *type_name, LLVMTypeRef struct_type, ASTNode *type_node);
 
 LLVMValueRef codegen_type_instance(LLVMVisitor* v, ASTNode* node);
 LLVMValueRef codegen_attr_setter(LLVMVisitor*v , ASTNode* node);
@@ -82,6 +81,9 @@ LLVMValueRef codegen_method_getter(LLVMVisitor* v, ASTNode* node);
 
 
 LLVMValueRef codegen_dec_method(LLVMVisitor* v, ASTNode* node, LLVMUserTypeInfo* type_info);
+
+LLVMValueRef codegen_base_function(LLVMVisitor* v,ASTNode* node);
+
 
 
 void find_type_dec(LLVMVisitor *v, ASTNode *node);

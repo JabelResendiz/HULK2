@@ -43,6 +43,7 @@ typedef struct ASTNode {
     Scope* scope;
     Context* context;
     NodeList* derivations;
+    char* name_method_base ;
     union {
         double number_value;
         char* string_value;
@@ -88,6 +89,15 @@ typedef struct ASTNode {
             Type* type;
             struct ASTNode* exp;
         } cast_test;
+
+        struct
+        {
+            Type* current_class_type;
+            char* original_method_name;
+            char* current_method;
+
+        }base_method;
+
     } data;
 } ASTNode;
 

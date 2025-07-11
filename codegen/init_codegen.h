@@ -126,10 +126,43 @@ typedef struct LLVMCoreContext
     LLVMTypeRef strcmp_func_type;
 
     LLVMUserTypeInfo *user_types;
+    
+    // LLVMTypeRef runtime_type_info_struct_type;
+
+    // LLVMValueRef global_runtime_type_table;
+
+    // LLVMValueRef is_super_type_runtime_func;
+
+    LLVMValueRef global_runtime_type_names_table; // Variable global LLVM IR: array de i8* (punteros a cadenas de nombre)
+    LLVMValueRef get_type_name_by_id_func;        // Función LLVM IR: __get_type_name_by_id(i32 type_id) -> i8*
+
 
 } LLVMCoreContext;
 
+
+// typedef struct RuntimeTypeEntry
+// {
+//     int id; // Id unico del tipo
+//     int parent_id; // id de su padre directo
+// }RuntimeTypeEntry;
+
+
+
+
+
+
+
+
 // --------------------------METHODS-------------------------------
+
+
+//void init_llvm_context_data(LLVMCoreContext *ctx);
+// void add_runtime_type_entry(LLVMCoreContext *ctx, int id, int parent_id);
+// LLVMValueRef finalize_global_type_info_table(LLVMCoreContext *ctx);
+// LLVMValueRef create_is_subtype_function(LLVMCoreContext *ctx) ;
+
+
+
 
 LLVMTypeRef type_to_llvm(LLVMCoreContext *ctx, Type *type);
 
@@ -168,5 +201,7 @@ LLVMValueRef createGlobalString(LLVMCoreContext *ctx, const char *str, const cha
 
 int get_max_type_id(LLVMCoreContext* ctx);
 LLVMUserTypeInfo** get_type_info_array(LLVMCoreContext* ctx);
+
+LLVMValueRef create_is_super_type_runtime_function(LLVMCoreContext *ctx);
 
 #endif

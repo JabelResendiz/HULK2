@@ -46,7 +46,7 @@ typedef struct {
     LLVMValueRef (*attr_getter)(LLVMVisitor*, ASTNode*);
     LLVMValueRef (*attr_setter)(LLVMVisitor*, ASTNode*);
     LLVMValueRef (*method_getter)(LLVMVisitor*,ASTNode*);
-   // LLVMValueRef (*base_func)(Visitor*, ASTNode*);
+    LLVMValueRef (*base_func)(LLVMVisitor*, ASTNode*);
 } LLVM_AttributeVisitors;
 
 // --- Estructura del visitor ---

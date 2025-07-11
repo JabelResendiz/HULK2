@@ -2,6 +2,12 @@
 #include "../ast/ast.h"
 #include "../visitor/visitor.h"
 
+
+#define RED     "\x1B[31m"
+#define RESET   "\x1B[0m"
+
+
+
 extern char* keywords[]; // keywords of the language
 extern char scape_chars[]; //scapes characters defined
 

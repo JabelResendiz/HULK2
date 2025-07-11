@@ -66,6 +66,9 @@ void visit_program(Visitor* v, ASTNode* node) {
         ASTNode* child =  node->data.program_node.statements[i];
         child->scope->parent = node->scope;
         child->context->parent = node->context;
+        
+        fprintf(stderr,"julio verdadero\n");
+        
         accept(v, child);
 
         if (child->type == NODE_ASSIGNMENT) {
@@ -77,6 +80,8 @@ void visit_program(Visitor* v, ASTNode* node) {
             );
         }
     }
+
+
 }
 
 // <----------KEYWORDS---------->

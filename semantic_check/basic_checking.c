@@ -27,6 +27,9 @@ void visit_boolean(Visitor* v, ASTNode* node) { }
 
 // method to visit binary operation node
 void visit_binary_op(Visitor* v, ASTNode* node) {
+   
+   fprintf(stderr,RED "ANDO EN EL VISIT DE BINARY OP\n"RESET);
+   
     ASTNode* left = node->data.op_node.left;
     ASTNode* right = node->data.op_node.right;
 
@@ -38,10 +41,14 @@ void visit_binary_op(Visitor* v, ASTNode* node) {
     accept(v, left);
     accept(v, right);
 
+    fprintf(stderr,"lopoooooooooooooooo\n");
+
     int unified = unify_op(
         v, left, right, node->data.op_node.op, 
         node->data.op_node.op_name
     );
+
+    fprintf(stderr,"el valor de left es %s y de right %s\n",left->return_type->name, right->return_type->name);
 
     if (unified == 3) { // visit again if unified
         accept(v, left);
@@ -53,7 +60,17 @@ void visit_binary_op(Visitor* v, ASTNode* node) {
     }
 
     Type* left_type = get_type(left);
+
+    fprintf(stderr,"candela\n");
+    
+    if(right->type == NODE_BASE_FUNC)
+    {
+        fprintf(stderr,"122111111111111\n");
+    }
+
     Type* right_type = get_type(right);
+
+    fprintf(stderr," el tipo de cada uno es %s y %s\n",left_type->name,right_type->name);
 
     OperatorTypeRule rule = create_op_rule( 
         left_type, right_type, 

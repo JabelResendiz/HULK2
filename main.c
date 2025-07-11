@@ -11,28 +11,31 @@
 
 extern int yyparse(void);
 extern FILE *yyin;
-extern ASTNode* root;
+extern ASTNode *root;
 
-int main() {
+int main()
+{
     yyin = fopen("script.hulk", "r");
-    if (!yyin) {
+    if (!yyin)
+    {
         perror("Error opening script.hulk");
         return 1;
     }
-    
-    if (!yyparse() && !analyze_semantics(root)) {
+
+    if (!yyparse() && !analyze_semantics(root))
+    {
         fclose(yyin);
-        
+
         printf(BLUE "\n🌳 Abstract Syntax Tree:\n" RESET);
         print_ast(root, 0);
-        
+
         printf(CYAN "\nGenerating LLVM code...\n" RESET);
         compile_to_llvm(root, "./build/output.ll");
         printf(GREEN "✅ LLVM code generated succesfully in output.ll\n" RESET);
-        
+
         free_ast(root);
         root = NULL;
     }
-    
+
     return 0;
 }

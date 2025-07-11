@@ -182,6 +182,25 @@ LLVMCoreContext *llvm_core_context_create()
     ctx->ptr_type = LLVMPointerType(ctx->i8_type, 0); // General purpose i8* pointer
 
     ctx->user_types = NULL;
+    
+    // LLVMTypeRef runtime_type_info_fields[] = { ctx->i32_type, ctx->i32_type };
+
+    // ctx->runtime_type_info_struct_type = LLVMStructTypeInContext(ctx->context,
+    //                                                              runtime_type_info_fields,
+    //                                                              2, // Número de campos
+    //                                                              0); // No empaquetado
+
+    // ctx->is_super_type_runtime_func = create_is_super_type_runtime_function(ctx);
+
+    // int total_num_user_types = 100;
+    // ctx->global_runtime_type_table = LLVMAddGlobal(ctx->module,
+    //                                                LLVMArrayType(ctx->runtime_type_info_struct_type, total_num_user_types),
+    //                                                "__runtime_type_table");
+    // LLVMSetLinkage(ctx->global_runtime_type_table, LLVMInternalLinkage); // O LLVMLinkagePrivateLinkage
+    
+    //ctx->user_types = (LLVMUserTypeInfo**)calloc(total_num_user_types, sizeof(LLVMUserTypeInfo*));
+    //ctx->num_user_types = total_num_user_types;
+
 
     return ctx;
 }
@@ -221,13 +240,12 @@ void free_llvm_type_member(LLVMTypeMemberInfo **member)
     if (!member)
         return;
 
-    for (int i=0;i< sizeof(member)/sizeof(member[0]);i++)
+    for (int i = 0; i < sizeof(member) / sizeof(member[0]); i++)
     {
         free(member[i]);
     }
 
     free(member);
-    
 }
 
 void free_llvm_method(LLVMMethodInfo **method)
@@ -380,32 +398,7 @@ void llvm_declare_builtins(LLVMCoreContext *ctx)
 #undef DECLARE_FUNC_INTERNAL
 #undef DECLARE_VARIADIC_FUNC_INTERNAL
 
-    // // Funciones de strings
-    // DECLARE_FUNC(ctx->module, "strcpy", VOID_TYPE, I8_PTR_TYPE, I8_PTR_TYPE);
-    // DECLARE_FUNC(ctx->module, "strcat", VOID_TYPE, I8_PTR_TYPE, I8_PTR_TYPE);
-    // DECLARE_FUNC(ctx->module, "strlen", I64_TYPE, I8_PTR_TYPE);
-
-    // // Funciones matemáticas
-    // DECLARE_FUNC(ctx->module, "sqrt", DOUBLE_TYPE, DOUBLE_TYPE);
-    // DECLARE_FUNC(ctx->module, "sin", DOUBLE_TYPE, DOUBLE_TYPE);
-    // DECLARE_FUNC(ctx->module, "cos", DOUBLE_TYPE, DOUBLE_TYPE);
-
-    // DECLARE_FUNC(ctx->module,"log", DOUBLE_TYPE,DOUBLE_TYPE);
-    // DECLARE_FUNC(ctx->module,"exp",DOUBLE_TYPE,DOUBLE_TYPE);
-    // DECLARE_FUNC(ctx->module,"rand",I32_TYPE);
-    // DECLARE_FUNC(ctx->module,"pow",DOUBLE_TYPE,DOUBLE_TYPE,DOUBLE_TYPE);
-    // DECLARE_FUNC(ctx->module,"fmod",DOUBLE_TYPE,DOUBLE_TYPE,DOUBLE_TYPE);
-    // // Memoria
-    // DECLARE_FUNC(ctx->module, "malloc", I8_PTR_TYPE, I64_TYPE);
-
-    // // I/O (variádicas)
-    // DECLARE_VARIADIC_FUNC(ctx->module, "printf", I32_TYPE, I8_PTR_TYPE);
-    // DECLARE_FUNC(ctx->module, "puts", I32_TYPE, I8_PTR_TYPE);
-    // DECLARE_VARIADIC_FUNC(ctx->module,"snprintf",I32_TYPE,I8_PTR_TYPE,I64_TYPE,I8_PTR_TYPE);
-    // DECLARE_FUNC(ctx->module,"strcmp",I32_TYPE,I8_PTR_TYPE,I8_PTR_TYPE);
-
-    // // Control
-    // DECLARE_FUNC(ctx->module, "exit", VOID_TYPE, I32_TYPE);
+  
 }
 
 void llvm_handle_stack_overflow(
@@ -534,18 +527,10 @@ LLVMTypeRef *build_struct_fields(LLVMCoreContext *ctx, ASTNode *node, LLVMUserTy
             struct_fields[index] = member_llvm_type;
             member->llvm_type = member_llvm_type;
             member->default_value_node = child->data.op_node.right;
-            type_info->members[index-2] = member;
+            type_info->members[index - 2] = member;
             index++;
         }
     }
-
-    // LLVMTypeMemberInfo** f = type_info->members;
-
-    // for(int i =0;i<type_info->num_data_members;i++)
-    // {
-    //     fprintf(stderr,"el nombr de mi varaibles es f[]")
-    // }
-
 
 
     return struct_fields;
@@ -563,14 +548,14 @@ LLVMValueRef *build_vtable_initializer(LLVMCoreContext *ctx, ASTNode *node, LLVM
         vtable_initializer_values[i] = parent_info->vtable_initializer_values[i];
 
         LLVMMethodInfo *new_method = malloc(sizeof(LLVMMethodInfo));
-        
+
         char *base_method_name = delete_underscore_from_str(parent_info->methods[i]->name, parent_info->name);
 
-        fprintf(stderr,GREEN"el base funcion es %s\n"RESET, base_method_name);
+        fprintf(stderr, GREEN "el base funcion es %s\n" RESET, base_method_name);
 
-        char* new_name = concat_str_with_underscore(type_info->name,base_method_name);
+        char *new_name = concat_str_with_underscore(type_info->name, base_method_name);
 
-        fprintf(stderr, GREEN "El nueov nombre es de %s\n"RESET,new_name );
+        fprintf(stderr, GREEN "El nueov nombre es de %s\n" RESET, new_name);
         new_method->name = new_name;
         new_method->llvm_func_type = parent_info->methods[i]->llvm_func_type;
         new_method->llvm_func_value = parent_info->methods[i]->llvm_func_value;
@@ -606,7 +591,7 @@ LLVMValueRef *build_vtable_initializer(LLVMCoreContext *ctx, ASTNode *node, LLVM
         }
         else if (child->type == NODE_FUNC_DEC && child->data.func_node.flag_overriden >= 1)
         {
-            int index = child->data.func_node.flag_overriden -1;
+            int index = child->data.func_node.flag_overriden - 1;
 
             const char *func_name = child->data.func_node.name;
 
@@ -631,57 +616,90 @@ LLVMValueRef *build_vtable_initializer(LLVMCoreContext *ctx, ASTNode *node, LLVM
 }
 
 
+// LLVMValueRef create_is_super_type_runtime_function(LLVMCoreContext *ctx)
+// {
+//     LLVMTypeRef param_types[] = {ctx->i32_type, ctx->i32_type};
 
-int get_max_type_id(LLVMCoreContext* ctx)
-{
-    
-    return ctx->user_types->id;
-}
+//     LLVMTypeRef func_type = LLVMFunctionType(ctx->i1_type, param_types, 2, 0);
+
+//     // Declara la función en el módulo
+//     LLVMValueRef func = LLVMAddFunction(ctx->module, "__is_super_type_runtime", func_type);
+//     LLVMSetLinkage(func, LLVMInternalLinkage); // Internal linkage, only visible within this module
+
+//     // Obtiene los parámetros de la función
+//     LLVMValueRef child_id_param = LLVMGetParam(func, 0);
+//     LLVMValueRef parent_id_param = LLVMGetParam(func, 1);
+//     LLVMSetValueName(child_id_param, "child_id_param");
+//     LLVMSetValueName(parent_id_param, "parent_id_param");
+
+//     // Crea bloques básicos
+//     LLVMBasicBlockRef entry_block = LLVMAppendBasicBlockInContext(ctx->context, func, "entry");
+//     LLVMBasicBlockRef loop_header_block = LLVMAppendBasicBlockInContext(ctx->context, func, "loop_header");
+//     LLVMBasicBlockRef loop_body_block = LLVMAppendBasicBlockInContext(ctx->context, func, "loop_body");
+//     LLVMBasicBlockRef exit_true_block = LLVMAppendBasicBlockInContext(ctx->context, func, "exit_true");
+//     LLVMBasicBlockRef exit_false_block = LLVMAppendBasicBlockInContext(ctx->context, func, "exit_false");
+
+//     // Configura el constructor para el bloque de entrada
+//     LLVMPositionBuilderAtEnd(ctx->builder, entry_block);
+
+//     // Inicializa 'current_id' con 'child_id_param'
+//     LLVMValueRef current_id_alloca = LLVMBuildAlloca(ctx->builder, ctx->i32_type, "current_id_alloca");
+//     LLVMBuildStore(ctx->builder, child_id_param, current_id_alloca);
+
+//     // Salta al encabezado del bucle
+//     LLVMBuildBr(ctx->builder, loop_header_block);
+
+//     // --- loop_header_block ---
+//     LLVMPositionBuilderAtEnd(ctx->builder, loop_header_block);
+//     LLVMValueRef current_id = LLVMBuildLoad2(ctx->builder, ctx->i32_type, current_id_alloca, "current_id");
+
+//     // Compara current_id con parent_id_param
+//     LLVMValueRef is_equal = LLVMBuildICmp(ctx->builder, LLVMIntEQ, current_id, parent_id_param, "is_equal");
+//     LLVMBuildCondBr(ctx->builder, is_equal, exit_true_block, loop_body_block);
+
+//     // --- loop_body_block ---
+//     LLVMPositionBuilderAtEnd(ctx->builder, loop_body_block);
+
+//     // Carga la tabla global de información de tipo
+//     // Asumimos que ctx->global_runtime_type_table existe y está inicializada
+//     // y que es un array de {i32 type_id, i32 parent_id}
+//     LLVMValueRef zero = LLVMConstInt(ctx->i32_type, 0, 0); // Constante 0 para GEP
+
+//     // Obtiene el puntero al elemento de la tabla para current_id
+//     // GEP: getelementptr <array_type>, <array_ptr>, i32 0, i32 current_id
+//     // Esto asume que los IDs de tipo son índices válidos en la tabla.
+//     LLVMValueRef indices[] = { zero, current_id };
+//     LLVMValueRef type_info_ptr = LLVMBuildGEP2(ctx->builder,
+//                                                LLVMGetElementType(LLVMTypeOf(ctx->global_runtime_type_table)), // Type of array elements
+//                                                ctx->global_runtime_type_table,
+//                                                indices, 2, "type_info_ptr");
+
+//     // Obtiene el puntero al campo 'parent_id' (índice 1 en el struct {type_id, parent_id})
+//     LLVMValueRef parent_id_field_ptr = LLVMBuildStructGEP2(ctx->builder,
+//                                                           ctx->runtime_type_info_struct_type,
+//                                                           type_info_ptr, 1, "parent_id_field_ptr");
+
+//     // Carga el parent_id del tipo actual
+//     LLVMValueRef next_current_id = LLVMBuildLoad2(ctx->builder, ctx->i32_type, parent_id_field_ptr, "next_current_id");
+
+//     // Verifica si next_current_id es -1 (sin padre)
+//     LLVMValueRef minus_one = LLVMConstInt(ctx->i32_type, -1, 1); // -1 signed
+//     LLVMValueRef is_no_parent = LLVMBuildICmp(ctx->builder, LLVMIntEQ, next_current_id, minus_one, "is_no_parent");
+
+//     // Almacena el nuevo current_id para la siguiente iteración
+//     LLVMBuildStore(ctx->builder, next_current_id, current_id_alloca);
+
+//     // Si es -1, salta a exit_false; de lo contrario, salta al encabezado del bucle
+//     LLVMBuildCondBr(ctx->builder, is_no_parent, exit_false_block, loop_header_block);
 
 
-LLVMUserTypeInfo** get_type_info_array(LLVMCoreContext* ctx)
-{
-    LLVMUserTypeInfo* types = ctx->user_types;
-    int cantidad =0;
+//     // --- exit_true_block ---
+//     LLVMPositionBuilderAtEnd(ctx->builder, exit_true_block);
+//     LLVMBuildRet(ctx->builder, LLVMConstInt(ctx->i1_type, 1, 0)); // Return true
 
-    while(types)
-    {
-        cantidad++;
-        types = types->next;
-    }
+//     // --- exit_false_block ---
+//     LLVMPositionBuilderAtEnd(ctx->builder, exit_false_block);
+//     LLVMBuildRet(ctx->builder, LLVMConstInt(ctx->i1_type, 0, 0)); // Return false
 
-    LLVMUserTypeInfo** array_types = (LLVMUserTypeInfo**) malloc(cantidad*sizeof(LLVMUserTypeInfo*));
-
-    LLVMUserTypeInfo* new_types = ctx->user_types;
-
-    for(int i=0;i<cantidad;i++)
-    {
-        LLVMUserTypeInfo* new_types2 = malloc(sizeof(LLVMUserTypeInfo));
-        new_types2->id = new_types->id;
-        new_types2->name = strdup(new_types->name);
-        new_types2->struct_type = new_types;
-        new_types2->vtable_struct_type =  new_types->vtable_struct_type;
-        new_types2->class_ptr_type= new_types->class_ptr_type;
-        new_types2->vtable_ptr_type=new_types->vtable_ptr_type;
-        new_types2->vtable_global=new_types->vtable_global;
-        new_types2->vtable_slot_ptr_types=new_types->vtable_slot_ptr_types;
-        new_types2->vtable_slot_types=new_types->vtable_slot_types;
-        new_types2->struct_fields= new_types->struct_fields;
-        new_types2->vtable_initializer_values=new_types->vtable_initializer_values;
-
-        new_types2->members =new_types->members ;
-        new_types2->num_data_members= new_types->num_data_members;
-
-        new_types2->methods=new_types->methods;
-        new_types2->num_methods_virtual= new_types->num_methods_virtual;
-
-        new_types2->parent_info=new_types->parent_info;
-        new_types2->next =new_types->next ;
-        array_types[i] = new_types2;
-
-        new_types = new_types->next;
-        
-    }
-
-    return array_types;
-}
+//     return func;
+// }

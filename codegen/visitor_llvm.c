@@ -83,8 +83,12 @@ LLVMValueRef codegen_accept(LLVMVisitor *visitor, ASTNode *node)
     case NODE_CAST_TYPE:
         fprintf(stderr,"Vamos a entrar el codegend ed AS\n");
         return visitor->types.casting(visitor,node);
-
-        default:
+    
+    case NODE_BASE_FUNC:
+        fprintf(stderr,"vamos a entrar al codegen de base funcion\n");
+        return visitor->attrs.base_func(visitor,node);
+        
+    default:
         fprintf(stderr, "No encontramos ne le codegen accept \n");
         exit(1);
     }

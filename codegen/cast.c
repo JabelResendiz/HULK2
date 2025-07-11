@@ -193,7 +193,6 @@
 //     // Add incoming value for the PHI node (for the loop backedge)
 //     LLVMAddIncoming(current_checked_id_phi, &next_checked_id, &loop_body_bb, 1);
 
-
 //     // Build the match_bb (if target found)
 //     LLVMPositionBuilderAtEnd(v->ctx->builder, match_bb);
 //     LLVMBuildBr(v->ctx->builder, merge_bb);
@@ -218,37 +217,28 @@
 //     return final_result_phi;
 // }
 
+static int is_super_type(LLVMUserTypeInfo *parent, LLVMUserTypeInfo *child)
+{
+    LLVMUserTypeInfo *current = child;
 
+    while (current)
+    {
+        if (current->id == parent->id)
+            return current->id;
 
+        current = current->parent_info;
+    }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return -1;
+}
 
 LLVMValueRef codegen_is_type(LLVMVisitor *v, ASTNode *node)
 {
 
     // Generate code to get the instance
     LLVMValueRef instance = codegen_accept(v, node->data.cast_test.exp);
+
+    // fprintf(stderr,RED"el tipo dinamico es de %s\n"RESET, node->data.cast_test.exp->return_type->name);
 
     fprintf(stderr, GREEN "DEBUG: Después de codegen_accept para la expresión:\n" RESET);
     fprintf(stderr, GREEN "  Tipo de 'instance': \n" RESET);
@@ -263,7 +253,7 @@ LLVMValueRef codegen_is_type(LLVMVisitor *v, ASTNode *node)
     if (LLVMGetTypeKind(current_instance_llvm_type) != LLVMPointerTypeKind)
     {
         fprintf(stderr, RED "ERROR: 'instance' is not a pointer type (Kind: %d). Cannot perform 'is' check.\n" RESET, LLVMGetTypeKind(current_instance_llvm_type));
-        return LLVMConstInt( LLVMInt1Type(), 0, 0); // Return false
+        return LLVMConstInt(LLVMInt1Type(), 0, 0); // Return false
     }
 
     LLVMTypeRef element_type_if_ptr_to_ptr = LLVMGetElementType(current_instance_llvm_type);
@@ -292,7 +282,7 @@ LLVMValueRef codegen_is_type(LLVMVisitor *v, ASTNode *node)
     {
         fprintf(stderr, GREEN "DEBUG: Target type '%s' is a built-in type. Comparing static types.\n" RESET, target_type_ast->name);
         int eq = type_equals(target_type_ast, node->data.cast_test.exp->return_type);
-        return LLVMConstInt( LLVMInt1Type(), eq, 0);
+        return LLVMConstInt(LLVMInt1Type(), eq, 0);
     }
 
     // --- FOR USER-DEFINED TYPES (CLASSES) ---
@@ -312,7 +302,7 @@ LLVMValueRef codegen_is_type(LLVMVisitor *v, ASTNode *node)
     if (instance_struct_llvm_type == NULL)
     {
         fprintf(stderr, RED "CRITICAL ERROR: LLVM struct type is NULL in LLVMUserTypeInfo for type '%s'.\n" RESET, node->data.cast_test.exp->return_type->name);
-        return LLVMConstInt( LLVMInt1Type(), 0, 0); // Semantic error, return false
+        return LLVMConstInt(LLVMInt1Type(), 0, 0); // Semantic error, return false
     }
 
     fprintf(stderr, GREEN "DEBUG: Resolved instance's actual LLVM struct type (from UserTypeInfo): " RESET);
@@ -361,13 +351,218 @@ LLVMValueRef codegen_is_type(LLVMVisitor *v, ASTNode *node)
 
     LLVMValueRef target_id_llvm = LLVMConstInt(v->ctx->i32_type, target_type_id_value, 0);
 
+    int super_type_check_result = is_super_type(target_user_type_info, instance_user_type_info);
+
     // Compare IDs and return the i1 result.
-    LLVMValueRef result = LLVMBuildICmp(v->ctx->builder, LLVMIntEQ, instance_id, target_id_llvm, "type_test");
+    // LLVMValueRef result = LLVMBuildICmp(v->ctx->builder, LLVMIntEQ, instance_id, target_id_llvm, "type_test");
+
+    LLVMValueRef result = LLVMConstInt(LLVMInt1Type(), (super_type_check_result != -1), 0);
+
+    fprintf(stderr, GREEN "el nombre de mi tipo es %s\n" RESET, instance_user_type_info->name);
 
     fprintf(stderr, GREEN "--- DEBUG: End of codegen_is_type ---" RESET "\n");
+
     return result;
 }
 
 LLVMValueRef codegen_as_type(LLVMVisitor *v, ASTNode *node)
 {
+}
+
+LLVMValueRef codegen_base_function(LLVMVisitor *v, ASTNode *node)
+{
+
+    fprintf(stderr, RED "ESTAMO EN EL CODEGEN BASE FUNCTION" RESET);
+
+    fprintf(stderr, "EL tipo de retorno es %s\n", node->dynamic_type->name);
+    fprintf(stderr, "el tipo de retorno es %s\n", node->return_type->name);
+    fprintf(stderr, "el nombre del metodo base es %s\n", node->name_method_base);
+
+    // exit(1);
+    const char *method_name = node->name_method_base;
+    Type *current_class_type_value = node->data.base_method.current_class_type; // El tipo de la clase actual (ej. B)
+    Type *return_type_value = current_class_type_value->parent;                 // El tipo de retorno del método base
+
+    fprintf(stderr, "Metadatos del node: %s\n", method_name);
+    fprintf(stderr, "el tipo actual es %s\n", current_class_type_value->name);
+    fprintf(stderr, "el tipo del padre actual es %s\n", return_type_value->name);
+
+    if (!method_name || !current_class_type_value || !return_type_value)
+    {
+        fprintf(stderr, RED "ERROR: Campos nulos en nodo AST_CALL_BASE_METHOD (Línea: %d).\n" RESET, node->line);
+        return NULL;
+    }
+
+    // 1. Obtener el puntero 'self' de la función actual
+    LLVMValueRef self_ptr = LLVMGetParam(v->current_function, 0); // Asume que 'self' está en el ámbito actual
+    if (!self_ptr)
+    {
+        fprintf(stderr, RED "ERROR: 'self' pointer not found in scope for base method call (Línea: %d).\n" RESET, node->line);
+        return NULL;
+    }
+
+    fprintf(stderr, "\nDEBUG (Attr Getter): Object instance pointer type: %s\n", LLVMPrintTypeToString(LLVMTypeOf(self_ptr)));
+
+    // 2. Identificar la clase base LLVMUserTypeInfo
+    LLVMUserTypeInfo *current_class_info = find_user_type(v->ctx, current_class_type_value->name);
+    if (!current_class_info)
+    {
+        fprintf(stderr, RED "ERROR: Información de tipo de clase actual '%s' no encontrada para base method call (Línea: %d).\n" RESET, current_class_type_value->name, node->line);
+        return NULL;
+    }
+
+    fprintf(stderr, "el current class info es %s\n", current_class_info->name);
+
+    LLVMUserTypeInfo *base_class_info = current_class_info->parent_info; // Acceso al parent_type_info
+    if (!base_class_info)
+    {
+        fprintf(stderr, RED "ERROR: Clase base no encontrada o no definida para '%s' (Línea: %d).\n" RESET, current_class_type_value->name, node->line);
+        return NULL;
+    }
+    fprintf(stderr, "DEBUG: Clase base identificada: '%s'\n", base_class_info->name);
+
+    LLVMMethodInfo *method_info = find_method_info(base_class_info, method_name);
+
+    // LLVMValueRef self_casted = LLVMBuildBitCast(v->ctx->builder, self_ptr, LLVMPointerType(base_class_info->struct_type, 0), "casted_self");
+
+    // LLVMValueRef vtable_ptr_field_addr = LLVMBuildStructGEP2(
+    //     v->ctx->builder, base_class_info->struct_type, self_casted, 1, "vtable_ptr_addr");
+
+    // LLVMValueRef vtable_ptr_field_addr = LLVMBuildStructGEP2(v->ctx->builder, base_class_info->struct_type, self_ptr, 1, "vtable_ptr_addr");
+
+    // LLVMValueRef vtable_ptr_loaded = LLVMBuildLoad2(v->ctx->builder, base_class_info->vtable_ptr_type, vtable_ptr_field_addr, "vtable_ptr_loaded");
+    // LLVMSetAlignment(vtable_ptr_loaded, 8); // Adjust alignment if necessary
+
+    //LLVMValueRef func_ptr_addr = LLVMBuildStructGEP2(v->ctx->builder, base_class_info->vtable_struct_type, vtable_ptr_loaded, method_info->vtable_index, "func_ptr_slot_addr");
+    // LLVMValueRef loaded_func_ptr = LLVMBuildLoad2(v->ctx->builder, LLVMPointerType(method_info->llvm_func_type, 0), func_ptr_addr, "loaded_dynamic_func_ptr");
+    // LLVMSetAlignment(loaded_func_ptr, 8);
+
+    fprintf(stderr, "3-HASTA AQUI TODO BIEN, método: %s encontrado en el índice: %d\n", method_info->name, method_info->vtable_index);
+
+    LLVMTypeRef method_signature_type = method_info->llvm_func_type; // El tipo de función COMPLETO
+
+    unsigned int num_llvm_params = LLVMCountParamTypes(method_signature_type); // Número total de parámetros LLVM (incluyendo 'this')
+    LLVMValueRef *call_args = (LLVMValueRef *)malloc(num_llvm_params * sizeof(LLVMValueRef));
+    if (!call_args)
+    {
+        perror(RED "Error en malloc para call_args" RESET);
+        exit(EXIT_FAILURE);
+    }
+
+    call_args[0] = self_ptr; // El puntero 'this'
+
+    // Procesar los argumentos explícitos del método desde el AST
+    unsigned int ast_arg_count = node->data.func_node.arg_count;
+    // Comprobar que el número de argumentos del AST coincide con los esperados por LLVM (menos 'this')
+    if (ast_arg_count != (num_llvm_params - 1))
+    {
+        fprintf(stderr, RED "Error: Número de argumentos para el método '%s' no coincide (esperado %d, recibido %d).\n" RESET,
+                method_info->name, num_llvm_params - 1, ast_arg_count);
+        free(call_args);
+        return NULL;
+    }
+
+    for (unsigned int i = 0; i < ast_arg_count; i++)
+    {
+        // Generar código para cada argumento del AST
+        call_args[i + 1] = codegen_accept(v, node->data.func_node.args[i]);
+        if (!call_args[i + 1])
+        {
+            fprintf(stderr, RED "Error: No se pudo generar el argumento %d para el método '%s'.\n" RESET, i + 1, method_info->name);
+            free(call_args);
+            return NULL;
+        }
+    }
+
+    // 5. Construir la instrucción de llamada LLVM
+    //LLVMValueRef call_result = LLVMBuildCall2(v->ctx->builder, method_signature_type, loaded_func_ptr, call_args, num_llvm_params, "method_call_result");
+    LLVMValueRef call_result = LLVMBuildCall2(
+    v->ctx->builder,
+    method_signature_type,
+    method_info->llvm_func_value, // ← llamada directa, NO cargar de vtable
+    call_args,
+    num_llvm_params,
+    "method_call_result"
+);
+    
+    
+    free(call_args);
+
+    char *ir_string = LLVMPrintValueToString(call_result);
+    fprintf(stderr, RED "call_result as string:\n%s\n" RESET, ir_string);
+
+    return call_result;
+
+    // // 3. Castear el puntero 'self' al tipo de la clase base
+    // LLVMValueRef base_self_ptr = LLVMBuildBitCast(v->ctx->builder, self_ptr, LLVMPointerType(base_class_info->struct_type, 0), "base_self_ptr");
+
+    // fprintf(stderr, "2-DEBUG: Clase base identificada: '%s' con %d\n", base_class_info->name, base_class_info->num_methods_virtual);
+
+    // for(int i=0;i<base_class_info->num_methods_virtual;i++)
+    // {
+    //     fprintf(stderr,"El nombre es %s\n", base_class_info->methods[i]->name);
+    // }
+    // // 4. Encontrar el índice del método en la vtable de la clase base
+    // int method_idx = -1;
+    // for (int i = 0; i < base_class_info->num_methods_virtual; i++) {
+    //     LLVMMethodInfo* base_method_node_ast = base_class_info->methods[i];
+
+    //     if (base_method_node_ast && strcmp(base_method_node_ast->name, method_name) == 0) {
+    //         method_idx = i;
+    //         break;
+    //     }
+    // }
+
+    // fprintf(stderr, "3-DEBUG: Clase base identificada: '%s'\n", base_class_info->name);
+
+    // if (method_idx == -1) {
+    //     fprintf(stderr, RED "ERROR: Método base '%s' no encontrado en la vtable de la clase base '%s' (Línea: %d).\n" RESET, method_name, base_class_info->name, node->line);
+    //     return NULL;
+    // }
+    // fprintf(stderr, "DEBUG: Método base '%s' encontrado en índice %d.\n", method_name, method_idx);
+
+    // // 5. Cargar el puntero a la función desde la vtable de la clase base
+    // // Primero, obtener el puntero a la vtable de la instancia base_self_ptr
+    // LLVMValueRef base_vtable_ptr_field = LLVMBuildStructGEP2(v->ctx->builder, base_class_info->struct_type, base_self_ptr, 1, "base_vtable_field");
+    // LLVMValueRef base_vtable_ptr_loaded = LLVMBuildLoad2(v->ctx->builder, base_class_info->vtable_ptr_type, base_vtable_ptr_field, "base_vtable_ptr_loaded");
+    // LLVMSetAlignment(base_vtable_ptr_loaded, 8);
+
+    // fprintf(stderr, "2-DEBUG: Método base '%s' encontrado en índice %d.\n", method_name, method_idx);
+
+    // // Luego, obtener la dirección del puntero a la función dentro de la vtable
+    // LLVMValueRef func_ptr_addr = LLVMBuildStructGEP2(v->ctx->builder, base_class_info->vtable_struct_type, base_vtable_ptr_loaded, method_idx, "base_func_ptr_addr");
+
+    // // Obtener el tipo de la firma del método base
+    // LLVMTypeRef base_method_signature_type =  base_class_info->methods[method_idx]->llvm_func_type;
+
+    // // Cargar el puntero a la función real
+    // LLVMValueRef loaded_func_ptr = LLVMBuildLoad2(v->ctx->builder, LLVMPointerType(base_method_signature_type, 0), func_ptr_addr, "loaded_base_func_ptr");
+    // LLVMSetAlignment(loaded_func_ptr, 8);
+
+    // // 6. Preparar los argumentos para la llamada
+    // LLVMValueRef *call_args = (LLVMValueRef*)malloc((1 + node->data.func_node.arg_count) * sizeof(LLVMValueRef));
+    // if (!call_args) { perror(RED "Error en malloc para call_args (codegen_base_function)" RESET); exit(EXIT_FAILURE); }
+
+    // fprintf(stderr, "3-DEBUG: Método base '%s' encontrado en índice %d.\n", method_name, method_idx);
+
+    // call_args[0] = base_self_ptr; // El primer argumento es el puntero 'this' (ya casteado a la base)
+
+    // fprintf(stderr,"el numero de varaibles es %d\n", node->data.func_node.arg_count);
+
+    // for (int i = 0; i < node->data.func_node.arg_count; i++) {
+    //     call_args[1 + i] = codegen_accept(v, node->data.func_node.args[i]);
+    //     if (!call_args[1 + i]) {
+    //         fprintf(stderr, RED "ERROR: No se pudo generar código para el argumento %d de la llamada al método base (Línea: %d).\n" RESET, i, node->line);
+    //         free(call_args);
+    //         return NULL;
+    //     }
+    // }
+
+    // // 7. Generar la llamada a la función
+    // LLVMValueRef call_result = LLVMBuildCall2(v->ctx->builder, base_method_signature_type, loaded_func_ptr, call_args, 1 + node->data.func_node.arg_count, "base_call_result");
+    // free(call_args);
+
+    // fprintf(stderr, "DEBUG: Llamada al método base '%s' generada.\n", method_name);
+
+    // return call_result;
 }

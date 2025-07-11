@@ -370,18 +370,30 @@ Symbol* find_defined_type(Scope* scope, const char* name) {
     }
 
     Symbol* current = scope->defined_types;
+
+    fprintf(stderr,"1-fuego %d\n", scope->t_count);
+
     int i = 0;
-    while (i < scope->t_count) {
+
+    while (current) {
+        fprintf(stderr,"2-fuego y %s y %s\n",current->name,name);
+    
         if (!strcmp(current->name, name)) {
+            fprintf(stderr,"4-fuego\n");
+    
             return current;
         }
         current = current->next;
         i++;
     }
     
+    fprintf(stderr,"3-fuego\n");
+    
     if (scope->parent) {
         return find_defined_type(scope->parent, name);
     }
+    
+    fprintf(stderr,"fuego\n");
     
     return NULL;
 }

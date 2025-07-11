@@ -1,6 +1,6 @@
 #include "type.h"
 #include "ast/ast.h"
-
+#include <stdio.h>
 
 //<----------RULES---------->
 
@@ -102,8 +102,13 @@ Type TYPE_NULL = { "Null", NULL, &TYPE_OBJECT, NULL, NULL, 0 };
 // method to get the return type of a node
 Type* get_type(ASTNode* node) {
     Type* instance_type = node->return_type;
+    
+    fprintf(stderr," la instancai de ipo es %s\n", instance_type->name);
+    
     Symbol* t = find_defined_type(node->scope, instance_type->name);
 
+    fprintf(stderr," la instancai de ipo es %s\n", instance_type->name);
+    
     if (t)
         return t->type;
 
