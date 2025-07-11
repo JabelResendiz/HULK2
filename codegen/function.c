@@ -305,7 +305,7 @@ LLVMValueRef codegen_dec_function(LLVMVisitor *v, ASTNode *node)
     LLVMBasicBlockRef entry = LLVMAppendBasicBlock(func, "entry");
     LLVMBasicBlockRef exit_block = LLVMAppendBasicBlock(func, "function_exit");
 
-    // Configurar builder
+    // Configurar builder -- BLOQUE ENTRY ------
     LLVMPositionBuilderAtEnd(builder, entry);
 
     // 1. Stack depth handling
@@ -338,7 +338,8 @@ LLVMValueRef codegen_dec_function(LLVMVisitor *v, ASTNode *node)
     LLVMPositionBuilderAtEnd(builder, continue_block);
 
     push_scope();
-         fprintf(stderr, "6-HOOLAAAAAAAAAAAAA\n");
+    fprintf(stderr, "6-HOOLAAAAAAAAAAAAA\n");
+    
     // Almacenar parámetros en variables locales
     for (int i = 0; i < param_count; i++)
     {
@@ -357,7 +358,7 @@ LLVMValueRef codegen_dec_function(LLVMVisitor *v, ASTNode *node)
 
     // Bloque de salida
     LLVMPositionBuilderAtEnd(builder, exit_block);
-     fprintf(stderr, "7-HOOLAAAAAAAAAAAAA\n");
+    fprintf(stderr, "7-HOOLAAAAAAAAAAAAA\n");
     // Decrementar contador antes de retornar
     LLVMValueRef final_depth = LLVMBuildLoad2(builder, int32_type, current_stack_depth_var, "load_depth_final");
     LLVMValueRef dec_depth = LLVMBuildSub(builder, final_depth, LLVMConstInt(int32_type, 1, 0), "dec_depth");

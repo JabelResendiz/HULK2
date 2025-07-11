@@ -65,7 +65,6 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
     // --- Inicializar miembros de datos basados en argumentos del constructor ---
     // Los miembros de datos en la estructura LLVM comienzan después del ID (campo 0) y el puntero a la vtable (campo 1).
     // Es decir, el primer miembro de datos está en el índice 2.
-    // Asumo que 'type_info->members' es una lista enlazada ORDENADA según los índices de los campos.
     LLVMTypeMemberInfo **current_member_info_init = type_info->members;
 
     fprintf(stderr, "El nombre de mi type info es %s con %d \n", type_info->name, type_info->num_data_members);
@@ -116,8 +115,7 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
 
     fprintf(stderr, "Inicialización de todos los miembros de datos completada para '%s'.\n", class_name);
 
-    // Asegúrate de que los argumentos del constructor coincidan con los miembros de datos.
-    // Esto es una simplificación; en un compilador real, deberías mapear los argumentos del constructor
+    // deberías mapear los argumentos del constructor
     // a los miembros de la clase según la semántica de tu lenguaje.
     for (int i = 0; i < type_info->num_data_members && arg_idx < node->data.type_node.arg_count; i++)
     {
@@ -156,12 +154,7 @@ LLVMValueRef codegen_type_instance(LLVMVisitor *v, ASTNode *node)
         fprintf(stderr, YELLOW "5-DEBUG\n" RESET);
     }
 
-    // --- LLAMADAS A MÉTODOS DE LA VTABLE (iterando dinámicamente) ---
-    // Esto simula la llamada al constructor o métodos inicializadores.
-    // Esto es muy específico; en un lenguaje OO típico, el constructor
-    // sería una función explícita que se llamaría aquí, o los métodos
-    // serían llamados explícitamente en el código del usuario.
-    // Si esta sección es solo para depuración/demostración, está bien.
+    
     fprintf(stderr, YELLOW "6-DEBUG\n" RESET);
 
     LLVMValueRef vtable_ptr_loaded = LLVMBuildLoad2(v->ctx->builder, LLVMPointerType(type_info->vtable_struct_type, 0), vt_ptr_field, "vtable_ptr_loaded");

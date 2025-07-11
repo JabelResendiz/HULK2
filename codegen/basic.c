@@ -69,23 +69,25 @@ LLVMValueRef codegen_boolean(LLVMVisitor *v, ASTNode *node)
 LLVMValueRef codegen_variable(LLVMVisitor *v, ASTNode *node)
 {
 
-    fprintf(stderr, RED"ESTO EN EL CODEGEN_VARIABLE\n" RESET);
+    fprintf(stderr, RED "ESTO EN EL CODEGEN_VARIABLE\n" RESET);
 
     LLVMModuleRef module = v->ctx->module;
     LLVMBuilderRef builder = v->ctx->builder;
 
-    const char* var_name = node->data.variable_name;
-    
-    fprintf(stderr,"El nombre de mi variable es %s\n",var_name);
+    const char *var_name = node->data.variable_name;
+
+    fprintf(stderr, "El nombre de mi variable es %s\n", var_name);
 
     // --- Special handling for 'self' ---
     // 'self' is the first argument to any method.
     // We need to check if we're currently inside a method.
     // Assuming 'v->current_function' holds the LLVMValueRef of the function being built.
     // You might need to add a 'current_function' field to your LLVMVisitor or LLVMCoreContext.
-    if (strcmp(var_name, "self") == 0) {
+    if (strcmp(var_name, "self") == 0)
+    {
         // Ensure we are in a function context. If not, it's an error (e.g., 'self' outside a method).
-        if (!v->current_function) { // You need to track the current function being generated
+        if (!v->current_function)
+        { // You need to track the current function being generated
             fprintf(stderr, RED "Error: 'self' utilizado fuera del contexto de una función de clase.\n" RESET);
             return NULL;
         }
@@ -113,12 +115,12 @@ LLVMValueRef codegen_variable(LLVMVisitor *v, ASTNode *node)
     //     fprintf(stderr,"UN tremendo problema aqui\n");
     // LLVMValueRef loaded = LLVMBuildLoad2(builder, var_type, alloca, "tmp");
     // fprintf(stderr,"UN tremendo problema aqui\n");
-    
-    LLVMTypeRef var_type = type_to_llvm(v->ctx,node->return_type);
-    
+
+    LLVMTypeRef var_type = type_to_llvm(v->ctx, node->return_type);
+
     LLVMValueRef loaded = LLVMBuildLoad2(builder, var_type, alloca, "tmp");
 
-    fprintf(stderr,"Hasta aqui todo joya\n");
+    fprintf(stderr, "Hasta aqui todo joya\n");
     if (node->return_type && node->return_type != NULL)
     {
         fprintf(stderr, "candela\n");
@@ -181,7 +183,7 @@ LLVMValueRef codegen_variable(LLVMVisitor *v, ASTNode *node)
         return loaded;
     }
 
-    fprintf(stderr,"VOY A SALIR DE codegen variable \n");
+    fprintf(stderr, "VOY A SALIR DE codegen variable \n");
 }
 
 LLVMValueRef codegen_assignments(LLVMVisitor *v, ASTNode *node)
@@ -240,12 +242,22 @@ LLVMValueRef codegen_assignments(LLVMVisitor *v, ASTNode *node)
         declare_variable(var_name, alloca);
     }
 
+    char *alloca_str = LLVMPrintValueToString(alloca);
+    fprintf(stderr, "Guardando el valor en la variable %s (alloca: %s)\n",  var_name, alloca_str);
+    //LLVMDisposeMessage(val_str);
+    LLVMDisposeMessage(alloca_str);
+    exit(1);
+
+
+
     LLVMPositionBuilderAtEnd(builder, current_block);
     LLVMBuildStore(builder, value, alloca);
 
     // Para asignación destructiva (:=), retornar el valor asignado
     if (node->type == NODE_D_ASSIGNMENT)
     {
+        fprintf(stderr, "0000000000000000000000000000000\n");
+
         return value;
     }
     return NULL;
