@@ -1,0 +1,11 @@
+// Función simple
+function add(a, b) {
+    return a + b;
+}
+
+// Función con múltiples statements
+function test() {
+    let x = 5;
+    let y = 10;
+    return x + y;
+} 

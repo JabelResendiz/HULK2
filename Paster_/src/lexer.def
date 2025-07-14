@@ -1,0 +1,51 @@
+// Archivo de Definición para el Generador de Lexer
+// Formato: TOKEN_NAME   "regex"
+// Las expresiones regulares soportan: ., |, *, +, ?, (), y escapes con \
+// IGNORE se usa para patrones que deben ser omitidos (como el espacio en blanco).
+
+// Palabras clave
+LET         "let"
+IF          "if"
+ELSE        "else"
+WHILE       "while"
+FOR         "for"
+FUNCTION    "function"
+TYPE        "type"
+NEW         "new"
+INHERITS    "inherits"
+IS          "is"
+AS          "as"
+PRINT       "print"
+
+// Identificadores y Literales
+ID          "[a-zA-Z_][a-zA-Z0-9_]*"
+NUMBER      "[0-9]+(\\.[0-9]+)?"
+STRING      "\"[^\"]*\""
+
+// Operadores y Puntuación
+PLUS        "\\+"
+MINUS       "-"
+TIMES       "\\*"
+DIV         "/"
+ASSIGN      "="
+EQ          "=="
+NEQ         "!="
+LT          "<"
+GT          ">"
+LEQ         "<="
+GEQ         ">="
+LPAREN      "\\("
+RPAREN      "\\)"
+LBRACE      "{"
+RBRACE      "}"
+COMMA       ","
+SEMICOLON   ";"
+COLON       ":"
+DOT         "\\."
+CONCAT      "@"
+
+// Espacio en blanco y comentarios (serán ignorados)
+IGNORE      "[ \t\n]+"
+IGNORE      "//[^\n]*"
+
+

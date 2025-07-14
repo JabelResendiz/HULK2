@@ -1,0 +1,45 @@
+// Archivo de prueba con errores léxicos y sintácticos
+
+// Error léxico: carácter desconocido
+let x = 5 @ 3;  // @ no es un operador válido
+
+// Error léxico: string no terminado
+let message = "Hello world;  // Falta la comilla de cierre
+
+// Error sintáctico: falta punto y coma
+let y = 10
+let z = 20;  // Falta punto y coma en la línea anterior
+
+// Error sintáctico: paréntesis no balanceados
+function add(a, b {  // Falta paréntesis de cierre
+    return a + b;
+}
+
+// Error sintáctico: expresión inválida
+let result = 5 + * 3;  // Operador * sin operando izquierdo
+
+// Error léxico: número inválido
+let invalid = 123.456.789;  // Número con dos puntos decimales
+
+// Error sintáctico: función sin cuerpo
+function empty();  // Falta el cuerpo de la función
+
+// Error sintáctico: if sin condición
+if {
+    print("This is wrong");
+}
+
+// Error sintáctico: while sin condición
+while {
+    print("This is also wrong");
+}
+
+// Error léxico: comentario no terminado
+/* Este comentario no se termina
+   y debería causar un error
+
+// Error sintáctico: expresión vacía
+let empty_expr = ;
+
+// Error sintáctico: llamada de función sin argumentos
+call_function(,);  // Coma sin argumentos 
