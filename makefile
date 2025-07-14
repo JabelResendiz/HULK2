@@ -50,7 +50,8 @@ $(EXEC): lex.yy.o y.tab.o $(AST_DIR)/ast.o $(SRC_DIR)/main.o \
 	$(CODEGEN_DIR)/basic.o $(CODEGEN_DIR)/codegen.o $(CODEGEN_DIR)/control.o $(CODEGEN_DIR)/function.o $(CODEGEN_DIR)/getter.o \
 	$(CODEGEN_DIR)/init_codegen.o $(CODEGEN_DIR)/instance.o $(CODEGEN_DIR)/op.o $(CODEGEN_DIR)/visitor_llvm.o $(CODEGEN_DIR)/types.o\
 	$(CODEGEN_DIR)/setter.o $(CODEGEN_DIR)/cast.o\
-	$(TYPE_DIR)/type.o | $(BUILD_DIR)
+	$(TYPE_DIR)/type.o \
+	$(LEXER_DIR)/token.o $(LEXER_DIR)/nfa.o $(LEXER_DIR)/dfa.o $(LEXER_DIR)/regex_parser.o $(LEXER_DIR)/lexer_generator.o | $(BUILD_DIR)
 
 	@printf "$(CYAN)🔗 Getting ready...$(RESET)\n";
 	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
@@ -166,6 +167,22 @@ $(SEMANTIC_DIR)/type_checking.o: $(SEMANTIC_DIR)/type_checking.c
 $(SEMANTIC_DIR)/type_op_checking.o: $(SEMANTIC_DIR)/type_op_checking.c
 	@$(CC) $(CFLAGS) -c $< -o $@
 
+# LEXER - Reglas para el lexer personalizado
+$(LEXER_DIR)/token.o: $(LEXER_DIR)/token.c $(LEXER_DIR)/token.h
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(LEXER_DIR)/nfa.o: $(LEXER_DIR)/nfa.c $(LEXER_DIR)/nfa.h
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(LEXER_DIR)/dfa.o: $(LEXER_DIR)/dfa.c $(LEXER_DIR)/dfa.h
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(LEXER_DIR)/regex_parser.o: $(LEXER_DIR)/regex_parser.c $(LEXER_DIR)/regex_parser.h
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(LEXER_DIR)/lexer_generator.o: $(LEXER_DIR)/lexer_generator.c $(LEXER_DIR)/lexer_generator.h
+	@$(CC) $(CFLAGS) -c $< -o $@
+
 # Regla genérica para compilar cualquier archivo .c en .o
 %.o: %.c
 	@printf "$(CYAN)🔨 Compiling $<...$(RESET)\n";
@@ -200,3 +217,4 @@ clean:
 	@rm -f $(SCOPE_DIR)/*.o
 	@rm -f $(UTILS_DIR)/*.o
 	@rm -f $(CODEGEN_DIR)/*.o
+	@rm -f $(LEXER_DIR)/*.o

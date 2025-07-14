@@ -1,4 +1,0 @@
-// Test simple
-function test() {
-    return 5
-} 
