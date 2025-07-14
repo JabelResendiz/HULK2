@@ -1,0 +1,211 @@
+Terminals: NUMBER, STRING, BOOLEAN, ID, PLUS, MINUS, TIMES, DIVIDE, MOD, POWER, EQUALS, PLUSEQUAL, MINUSEQUAL, TIMESEQUAL, DIVEQUAL, MODEQUAL, POWEQUAL, ANDEQUAL, OREQUAL, CONCATEQUAL, DEQUALS, EQUALSEQUALS, NEQUALS, GREATER, LESS, EGREATER, ELESS, AND, OR, NOT, CONCAT, DCONCAT, ARROW, QUESTION, LPAREN, RPAREN, LBRACKET, RBRACKET, SEMICOLON, COMMA, DOT, COLON, FUNCTION, LET, IN, IF, ELIF, ELSE, WHILE, AS, IS, TYPE, INHERITS, NEW, BASE, FOR, RANGE, PI, E, EOF
+NonTerminals: Program, Statement, Expression, Block, ArithmeticExpr, StringExpr, BooleanExpr, FunctionCall, Primary, Arguments, Assignment, Declaration, ControlFlow, FunctionDeclaration, TypeDeclaration, ExpressionList, ArgumentList, Term, TermPrime, Factor, FactorPrime, ArithmeticExprPrime, FunctionList, LetExpression, VariableList, VariableBinding, IfExpression, WhileExpression, ForExpression, TypeBody, AttributeList, MethodList, Attribute, Method, TypedArguments, ParentTypeArguments, InstanceExpression, TypeAnnotation, TypedArgument, IsExpression, AsExpression
+Start: Program
+
+Productions:
+Program -> FunctionList TypeList Statement
+Program -> TypeList Statement
+Program -> FunctionList Statement
+Program -> Statement
+
+FunctionList -> FunctionDeclaration FunctionList
+FunctionList -> ε
+
+TypeList -> TypeDeclaration TypeList
+TypeList -> ε
+
+Statement -> Expression SEMICOLON
+Statement -> Declaration SEMICOLON
+Statement -> Assignment SEMICOLON
+Statement -> ControlFlow
+Statement -> Block
+Statement -> Expression
+
+Expression -> ArithmeticExpr
+Expression -> StringExpr
+Expression -> BooleanExpr
+Expression -> FunctionCall
+Expression -> LetExpression
+Expression -> IfExpression
+Expression -> WhileExpression
+Expression -> ForExpression
+Expression -> InstanceExpression
+Expression -> IsExpression
+Expression -> AsExpression
+Expression -> Block
+
+IsExpression -> Expression IS ID
+AsExpression -> Expression AS ID
+
+InstanceExpression -> NEW ID LPAREN Arguments RPAREN
+
+WhileExpression -> WHILE LPAREN BooleanExpr RPAREN Expression
+WhileExpression -> WHILE LPAREN BooleanExpr RPAREN Block
+
+ForExpression -> FOR LPAREN ID IN FunctionCall RPAREN Expression
+ForExpression -> FOR LPAREN ID IN FunctionCall RPAREN Block
+
+IfExpression -> IF LPAREN BooleanExpr RPAREN Expression
+IfExpression -> IF LPAREN BooleanExpr RPAREN Block
+IfExpression -> IF LPAREN BooleanExpr RPAREN Expression ELSE Expression
+IfExpression -> IF LPAREN BooleanExpr RPAREN Expression ELSE Block
+IfExpression -> IF LPAREN BooleanExpr RPAREN Block ELSE Expression
+IfExpression -> IF LPAREN BooleanExpr RPAREN Block ELSE Block
+
+LetExpression -> LET VariableList IN Expression
+LetExpression -> LET VariableList IN Block
+
+VariableList -> VariableBinding
+VariableList -> VariableBinding COMMA VariableList
+
+VariableBinding -> ID TypeAnnotation EQUALS Expression
+VariableBinding -> ID EQUALS Expression
+VariableBinding -> ID TypeAnnotation DEQUALS Expression
+VariableBinding -> ID DEQUALS Expression
+
+TypeAnnotation -> COLON ID
+
+Block -> LBRACKET ExpressionList RBRACKET
+ExpressionList -> Expression SEMICOLON ExpressionList
+ExpressionList -> Expression
+ExpressionList -> ε
+
+Declaration -> LET ID TypeAnnotation EQUALS Expression
+Declaration -> LET ID EQUALS Expression
+
+Assignment -> ID EQUALS Expression
+Assignment -> ID PLUSEQUAL Expression
+Assignment -> ID MINUSEQUAL Expression
+Assignment -> ID TIMESEQUAL Expression
+Assignment -> ID DIVEQUAL Expression
+Assignment -> ID MODEQUAL Expression
+Assignment -> ID POWEQUAL Expression
+Assignment -> ID ANDEQUAL Expression
+Assignment -> ID OREQUAL Expression
+Assignment -> ID CONCATEQUAL Expression
+Assignment -> ID DEQUALS Expression
+
+ControlFlow -> IfStatement
+ControlFlow -> WhileStatement
+ControlFlow -> ForStatement
+
+IfStatement -> IF LPAREN BooleanExpr RPAREN Block
+IfStatement -> IF LPAREN BooleanExpr RPAREN Block ELSE Block
+
+WhileStatement -> WHILE LPAREN BooleanExpr RPAREN Block
+
+ForStatement -> FOR LPAREN ID IN FunctionCall RPAREN Block
+
+FunctionDeclaration -> FUNCTION ID LPAREN TypedArguments RPAREN TypeAnnotation ARROW Expression SEMICOLON
+FunctionDeclaration -> FUNCTION ID LPAREN TypedArguments RPAREN ARROW Expression SEMICOLON
+FunctionDeclaration -> FUNCTION ID LPAREN Arguments RPAREN TypeAnnotation ARROW Expression SEMICOLON
+FunctionDeclaration -> FUNCTION ID LPAREN Arguments RPAREN ARROW Expression SEMICOLON
+FunctionDeclaration -> FUNCTION ID LPAREN TypedArguments RPAREN TypeAnnotation Block
+FunctionDeclaration -> FUNCTION ID LPAREN TypedArguments RPAREN Block
+FunctionDeclaration -> FUNCTION ID LPAREN Arguments RPAREN TypeAnnotation Block
+FunctionDeclaration -> FUNCTION ID LPAREN Arguments RPAREN Block
+
+TypeDeclaration -> TYPE ID LPAREN TypedArguments RPAREN INHERITS ID LPAREN ParentTypeArguments RPAREN TypeBody
+TypeDeclaration -> TYPE ID LPAREN TypedArguments RPAREN INHERITS ID TypeBody
+TypeDeclaration -> TYPE ID INHERITS ID LPAREN ParentTypeArguments RPAREN TypeBody
+TypeDeclaration -> TYPE ID INHERITS ID TypeBody
+TypeDeclaration -> TYPE ID LPAREN TypedArguments RPAREN TypeBody
+TypeDeclaration -> TYPE ID TypeBody
+
+TypeBody -> LBRACKET AttributeList MethodList RBRACKET
+TypeBody -> LBRACKET MethodList RBRACKET
+TypeBody -> LBRACKET AttributeList RBRACKET
+
+AttributeList -> Attribute SEMICOLON AttributeList
+AttributeList -> Attribute SEMICOLON
+
+Attribute -> ID TypeAnnotation EQUALS Expression
+Attribute -> ID EQUALS Expression
+
+MethodList -> Method MethodList
+MethodList -> Method
+
+Method -> ID LPAREN TypedArguments RPAREN TypeAnnotation ARROW Expression SEMICOLON
+Method -> ID LPAREN TypedArguments RPAREN ARROW Expression SEMICOLON
+Method -> ID LPAREN Arguments RPAREN TypeAnnotation ARROW Expression SEMICOLON
+Method -> ID LPAREN Arguments RPAREN ARROW Expression SEMICOLON
+Method -> ID LPAREN TypedArguments RPAREN TypeAnnotation Block
+Method -> ID LPAREN TypedArguments RPAREN Block
+Method -> ID LPAREN Arguments RPAREN TypeAnnotation Block
+Method -> ID LPAREN Arguments RPAREN Block
+
+TypedArguments -> TypedArgument TypedArgumentList
+TypedArguments -> TypedArgument
+TypedArguments -> ε
+
+TypedArgumentList -> COMMA TypedArgument TypedArgumentList
+TypedArgumentList -> COMMA TypedArgument
+
+TypedArgument -> ID TypeAnnotation
+TypedArgument -> ID
+
+ParentTypeArguments -> Expression ArgumentList
+ParentTypeArguments -> ε
+
+ArithmeticExpr -> Term ArithmeticExprPrime
+ArithmeticExprPrime -> PLUS Term ArithmeticExprPrime
+ArithmeticExprPrime -> MINUS Term ArithmeticExprPrime
+ArithmeticExprPrime -> ε
+
+Term -> Factor TermPrime
+TermPrime -> TIMES Factor TermPrime
+TermPrime -> DIVIDE Factor TermPrime
+TermPrime -> MOD Factor TermPrime
+TermPrime -> ε
+
+Factor -> Primary FactorPrime
+FactorPrime -> POWER Primary FactorPrime
+FactorPrime -> ε
+
+StringExpr -> String
+StringExpr -> String CONCAT StringExpr
+StringExpr -> String DCONCAT StringExpr
+StringExpr -> String CONCAT ArithmeticExpr
+StringExpr -> String DCONCAT ArithmeticExpr
+
+BooleanExpr -> ArithmeticExpr ComparisonOp ArithmeticExpr
+BooleanExpr -> BooleanExpr AND BooleanExpr
+BooleanExpr -> BooleanExpr OR BooleanExpr
+BooleanExpr -> NOT BooleanExpr
+BooleanExpr -> LPAREN BooleanExpr RPAREN
+BooleanExpr -> Boolean
+BooleanExpr -> ID
+
+ComparisonOp -> EQUALSEQUALS
+ComparisonOp -> NEQUALS
+ComparisonOp -> GREATER
+ComparisonOp -> LESS
+ComparisonOp -> EGREATER
+ComparisonOp -> ELESS
+
+FunctionCall -> ID LPAREN Arguments RPAREN
+FunctionCall -> PI LPAREN Arguments RPAREN
+FunctionCall -> E LPAREN Arguments RPAREN
+FunctionCall -> RANGE LPAREN Arguments RPAREN
+FunctionCall -> ID DOT ID LPAREN Arguments RPAREN
+FunctionCall -> ID DOT ID LPAREN RPAREN
+
+Arguments -> Expression ArgumentList
+ArgumentList -> COMMA Expression ArgumentList
+ArgumentList -> ε
+Arguments -> ε
+
+Primary -> Number
+Primary -> String
+Primary -> Boolean
+Primary -> ID
+Primary -> LPAREN ArithmeticExpr RPAREN
+Primary -> PI
+Primary -> E
+Primary -> ID DOT ID
+Primary -> BASE LPAREN Arguments RPAREN
+Primary -> BASE LPAREN RPAREN
+
+Number -> NUMBER
+String -> STRING
+Boolean -> BOOLEAN 
