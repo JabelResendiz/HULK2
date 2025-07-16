@@ -52,7 +52,7 @@ $(EXEC): lex.yy.o y.tab.o $(AST_DIR)/ast.o $(SRC_DIR)/main.o \
 	$(CODEGEN_DIR)/setter.o $(CODEGEN_DIR)/cast.o\
 	$(TYPE_DIR)/type.o \
 	$(LEXER_DIR)/token.o $(LEXER_DIR)/nfa.o $(LEXER_DIR)/dfa.o $(LEXER_DIR)/regex_parser.o $(LEXER_DIR)/lexer_generator.o \
-	$(PARSER_DIR)/grammar.o | $(BUILD_DIR)
+	$(PARSER_DIR)/ll1_parser.o $(PARSER_DIR)/grammar_parser.o $(PARSER_DIR)/first_calculator.o $(PARSER_DIR)/follow_calculator.o $(PARSER_DIR)/ll1_table.o $(PARSER_DIR)/ll1_structures.o | $(BUILD_DIR)
 
 	@printf "$(CYAN)🔗 Getting ready...$(RESET)\n";
 	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
@@ -184,8 +184,23 @@ $(LEXER_DIR)/regex_parser.o: $(LEXER_DIR)/regex_parser.c $(LEXER_DIR)/regex_pars
 $(LEXER_DIR)/lexer_generator.o: $(LEXER_DIR)/lexer_generator.c $(LEXER_DIR)/lexer_generator.h
 	@$(CC) $(CFLAGS) -c $< -o $@
 
-# PARSER LL1 - Reglas para el parser personalizado
-$(PARSER_DIR)/grammar.o: $(PARSER_DIR)/grammar.c $(PARSER_DIR)/grammar.h
+# PARSER LL(1) - Reglas para el parser LL(1)
+$(PARSER_DIR)/ll1_parser.o: $(PARSER_DIR)/ll1_parser.c $(PARSER_DIR)/ll1_parser.h
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(PARSER_DIR)/grammar_parser.o: $(PARSER_DIR)/grammar_parser.c $(PARSER_DIR)/grammar_parser.h
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(PARSER_DIR)/first_calculator.o: $(PARSER_DIR)/first_calculator.c $(PARSER_DIR)/first_calculator.h
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(PARSER_DIR)/follow_calculator.o: $(PARSER_DIR)/follow_calculator.c $(PARSER_DIR)/follow_calculator.h
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(PARSER_DIR)/ll1_table.o: $(PARSER_DIR)/ll1_table.c $(PARSER_DIR)/ll1_table.h
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(PARSER_DIR)/ll1_structures.o: $(PARSER_DIR)/ll1_structures.c $(PARSER_DIR)/ll1_structures.h
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 # Regla genérica para compilar cualquier archivo .c en .o

@@ -1,0 +1,56 @@
+Program      -> StmtList
+StmtList     -> TerminatedStmt StmtList | ε
+TerminatedStmt -> Stmt SEMICOLON
+Stmt         -> Expr | WhileStmt | ForStmt | BlockStmt | FunctionDef | TypeDef
+FunctionDef  -> FUNCTION ID LPAREN ArgIdList RPAREN TypeAnnotation FunctionBody
+TypeDef      -> TYPE ID TypeParams TypeInheritance LBRACKET TypeBody RBRACKET
+TypeParams   -> LPAREN ArgIdList RPAREN | ε
+TypeInheritance -> INHERITS ID TypeBaseArgs | ε
+TypeBaseArgs -> LPAREN ArgList RPAREN | ε
+TypeBody     -> TypeMember TypeBody | ε
+TypeMember   -> ID TypeMemberTail
+TypeMemberTail -> TypeAnnotation TypeMemberTail' | LPAREN ArgIdList RPAREN TypeAnnotation FunctionBody SEMICOLON
+TypeMemberTail' -> SEMICOLON | EQUALS Expr SEMICOLON
+AttributeDef -> ID EQUALS Expr SEMICOLON
+MethodDef    -> ID LPAREN ArgIdList RPAREN FunctionBody
+ArgIdList    -> ArgId ArgIdListTail | ε
+ArgIdListTail-> COMMA ArgId ArgIdListTail | ε
+ArgId        -> ID TypeAnnotation
+FunctionBody -> ARROW Expr | BlockStmt
+WhileStmt    -> WHILE Expr WhileBody
+WhileBody    -> BlockStmt | Expr
+ForStmt      -> FOR LPAREN ID IN Expr RPAREN ForBody
+ForBody      -> BlockStmt | Expr
+BlockStmt    -> LBRACKET StmtList RBRACKET
+Expr         -> OrExpr | IfExpr | LetExpr
+LetExpr      -> LET VarBindingList IN LetBody
+LetBody      -> Expr | WhileStmt | ForStmt | BlockStmt
+VarBindingList -> VarBinding VarBindingListTail
+VarBindingListTail -> COMMA VarBinding VarBindingListTail | ε
+VarBinding   -> ID TypeAnnotation EQUALS Expr
+TypeAnnotation -> COLON ID | ε
+IfExpr       -> IF LPAREN Expr RPAREN IfBody ElifList ELSE IfBody
+ElifList     -> ElifBranch ElifList | ε
+ElifBranch   -> ELIF LPAREN Expr RPAREN IfBody
+IfBody       -> BlockStmt | Expr
+OrExpr       -> AndExpr OrExpr'
+OrExpr'      -> OR AndExpr OrExpr' | ε
+AndExpr      -> CmpExpr AndExpr'
+AndExpr'     -> AND CmpExpr AndExpr' | ε
+CmpExpr      -> ConcatExpr CmpExpr'
+CmpExpr'     -> LESS ConcatExpr CmpExpr' | GREATER ConcatExpr CmpExpr' | ELESS ConcatExpr CmpExpr' | EGREATER ConcatExpr CmpExpr' | EQUALSEQUALS ConcatExpr CmpExpr' | NEQUALS ConcatExpr CmpExpr' | IS ID CmpExpr' | ε
+ConcatExpr   -> AddExpr ConcatExpr'
+ConcatExpr'  -> CONCAT AddExpr ConcatExpr' | DCONCAT AddExpr ConcatExpr' | ε
+AddExpr      -> Term AddExpr'
+AddExpr'     -> PLUS Term AddExpr' | MINUS Term AddExpr' | ε
+Term         -> Factor Term'
+Term'        -> TIMES Factor Term' | DIVIDE Factor Term' | MOD Factor Term' | ε
+Factor       -> Power Factor'
+Factor'      -> POWER Power Factor' | ε
+Power        -> Unary
+Unary        -> MINUS Unary | Primary AsExpr
+AsExpr       -> AS ID AsExpr | ε
+Primary      -> NUMBER | STRING | BOOLEAN | ID PrimaryTail | LPAREN Expr RPAREN | NEW ID LPAREN ArgList RPAREN | SELF PrimaryTail | BASE LPAREN ArgList RPAREN
+PrimaryTail  -> LPAREN ArgList RPAREN PrimaryTail | DOT ID PrimaryTail | DEQUALS Expr | EQUALS Expr | ε
+ArgList      -> Expr ArgListTail | ε
+ArgListTail  -> COMMA Expr ArgListTail | ε 

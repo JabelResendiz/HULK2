@@ -81,7 +81,10 @@ static TokenPattern patterns[] = {
     {TOKEN_SEMICOLON, ";", 1},
     {TOKEN_COMMA, ",", 1},
     {TOKEN_DOT, ".", 1},
-    {TOKEN_COLON, ":", 1}};
+    {TOKEN_COLON, ":", 1},
+
+    // Comentarios (regex) - deben ir al final para que no interfieran con otros patrones
+    {TOKEN_COMMENT, "//.*", 0}};
 
 #define NUM_PATTERNS (sizeof(patterns) / sizeof(patterns[0]))
 

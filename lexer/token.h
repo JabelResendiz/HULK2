@@ -80,7 +80,8 @@ typedef enum
 
     // Especiales
     TOKEN_EOF,
-    TOKEN_ERROR
+    TOKEN_ERROR,
+    TOKEN_COMMENT
 } TokenType;
 
 typedef struct

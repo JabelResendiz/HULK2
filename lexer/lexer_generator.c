@@ -212,6 +212,19 @@ Token *lexer_next_token(Lexer *lexer)
         lexer->pos = last_accepting_pos;
         lexer->column += token_length;
 
+        // Si es un comentario, ignorarlo y obtener el siguiente token
+        if (last_accepting_type == TOKEN_COMMENT)
+        {
+            // Para comentarios, avanzar hasta el final de línea si no está incluido
+            while (lexer->pos < strlen(lexer->input) && lexer->input[lexer->pos] != '\n')
+            {
+                lexer->pos++;
+                lexer->column++;
+            }
+            destroy_token(token);
+            return lexer_next_token(lexer);
+        }
+
         return token;
     }
 

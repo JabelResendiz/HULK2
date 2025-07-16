@@ -89,6 +89,8 @@ int get_token_priority(TokenType type)
     // Especiales
     case TOKEN_EOF:
     case TOKEN_ERROR:
+    case TOKEN_COMMENT:
+        return 6;
     default:
         return 6;
     }
