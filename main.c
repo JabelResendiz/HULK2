@@ -9,6 +9,7 @@
 #include "./parser/first_calculator.h"
 #include "./parser/follow_calculator.h"
 #include "./parser/ll1_table.h"
+#include "./parser/cst_to_ast.h"
 
 // Redefinir colores para evitar conflictos
 #undef GREEN
@@ -133,6 +134,8 @@ int main()
         printf(GREEN "✅ Análisis sintáctico exitoso!\n" RESET);
         printf(BLUE "\n🌳 Concrete Syntax Tree (CST):\n" RESET);
         print_cst_tree(cst_root, 0);
+
+        cst_to_ast(cst_root);
 
         // NO liberar el CST aquí - free_ll1_parser se encarga de liberarlo
     }

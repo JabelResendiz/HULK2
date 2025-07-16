@@ -52,7 +52,7 @@ $(EXEC): lex.yy.o y.tab.o $(AST_DIR)/ast.o $(SRC_DIR)/main.o \
 	$(CODEGEN_DIR)/setter.o $(CODEGEN_DIR)/cast.o\
 	$(TYPE_DIR)/type.o \
 	$(LEXER_DIR)/token.o $(LEXER_DIR)/nfa.o $(LEXER_DIR)/dfa.o $(LEXER_DIR)/regex_parser.o $(LEXER_DIR)/lexer_generator.o \
-	$(PARSER_DIR)/ll1_parser.o $(PARSER_DIR)/grammar_parser.o $(PARSER_DIR)/first_calculator.o $(PARSER_DIR)/follow_calculator.o $(PARSER_DIR)/ll1_table.o $(PARSER_DIR)/ll1_structures.o | $(BUILD_DIR)
+	$(PARSER_DIR)/ll1_parser.o $(PARSER_DIR)/grammar_parser.o $(PARSER_DIR)/first_calculator.o $(PARSER_DIR)/follow_calculator.o $(PARSER_DIR)/ll1_table.o $(PARSER_DIR)/ll1_structures.o $(PARSER_DIR)/cst_to_ast.o| $(BUILD_DIR)
 
 	@printf "$(CYAN)🔗 Getting ready...$(RESET)\n";
 	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
@@ -201,6 +201,9 @@ $(PARSER_DIR)/ll1_table.o: $(PARSER_DIR)/ll1_table.c $(PARSER_DIR)/ll1_table.h
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(PARSER_DIR)/ll1_structures.o: $(PARSER_DIR)/ll1_structures.c $(PARSER_DIR)/ll1_structures.h
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(PARSER_DIR)/cst_to_ast.o: $(PARSER_DIR)/cst_to_ast.c $(PARSER_DIR)/cst_to_ast.h
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 # Regla genérica para compilar cualquier archivo .c en .o
