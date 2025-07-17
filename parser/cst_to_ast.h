@@ -6,6 +6,7 @@
 
 #include "../ast/ast.h"
 #include "ll1_structures.h"
+#include "cst_to_ast2.h"
 
 // Define colores para stderr
 #define RED "\x1B[31m"
