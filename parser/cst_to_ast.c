@@ -1700,50 +1700,62 @@ ASTNode* process_primary_tail(ASTNode* base, CSTNode* primary_tail)
 ASTNode* process_primed_expression(CSTNode* primed_node, ASTNode* left_operand)
 {
     if (!primed_node || !left_operand) return left_operand;
-    
-    DEBUG("Procesando expresión primed con %d hijos\n", primed_node->child_count);
-    
-    // Buscar operadores en la producción primed
-    for (int i = 0; i < primed_node->child_count; i++) {
-        CSTNode* child = primed_node->children[i];
-        if (!child || strcmp(child->symbol, "ε") == 0) continue;
-        
-        DEBUG("Hijo %d de expresión primed: %s\n", i, child->symbol);
-        
-        // Buscar operadores
-        if (child->token && (strcmp(child->token->value, "*") == 0 || 
-                           strcmp(child->token->value, "/") == 0 || 
-                           strcmp(child->token->value, "%") == 0 ||
-                           strcmp(child->token->value, "+") == 0 || 
-                           strcmp(child->token->value, "-") == 0)) {
-            
-            char* op_str = strdup(child->token->value);
-            Operator op = OP_ADD;
-            
-            if (!strcmp(op_str, "*")) op = OP_MUL;
-            else if (!strcmp(op_str, "/")) op = OP_DIV;
-            else if (!strcmp(op_str, "%")) op = OP_MOD;
-            else if (!strcmp(op_str, "+")) op = OP_ADD;
-            else if (!strcmp(op_str, "-")) op = OP_SUB;
-            
-            DEBUG("Operador encontrado: %s\n", op_str);
-            
-            // Buscar el operando derecho
-            ASTNode* right_operand = NULL;
-            for (int j = i + 1; j < primed_node->child_count; j++) {
-                if (primed_node->children[j] && strcmp(primed_node->children[j]->symbol, "ε") != 0) {
-                    right_operand = expr_to_ast(primed_node->children[j]);
-                    break;
-                }
-            }
-            
-            if (right_operand) {
-                DEBUG("Operando derecho encontrado\n");
-                return create_binary_op_node(op, op_str, left_operand, right_operand, &TYPE_OBJECT);
-            }
+
+    // Si la producción es epsilon, retorna el operando izquierdo
+    if (primed_node->child_count == 0 ||
+        (primed_node->child_count == 1 && strcmp(primed_node->children[0]->symbol, "ε") == 0)) {
+        return left_operand;
+    }
+
+    // Espera: [operador, Term, AddExpr']
+    int idx = 0;
+    CSTNode* op_node = NULL;
+    CSTNode* right_node = NULL;
+    CSTNode* next_primed = NULL;
+
+    // Busca el operador
+    while (idx < primed_node->child_count && !op_node) {
+        if (primed_node->children[idx] && primed_node->children[idx]->token) {
+            op_node = primed_node->children[idx];
+        }
+        idx++;
+    }
+    // Busca el operando derecho
+    while (idx < primed_node->child_count && !right_node) {
+        if (primed_node->children[idx] && strcmp(primed_node->children[idx]->symbol, "ε") != 0) {
+            right_node = primed_node->children[idx];
+        }
+        idx++;
+    }
+    // Busca la siguiente producción primed
+    while (idx < primed_node->child_count && !next_primed) {
+        if (primed_node->children[idx]) {
+            next_primed = primed_node->children[idx];
+        }
+        idx++;
+    }
+
+    if (op_node && right_node) {
+        char* op_str = op_node->token->value;
+        Operator op = OP_ADD;
+        if (!strcmp(op_str, "+")) op = OP_ADD;
+        else if (!strcmp(op_str, "-")) op = OP_SUB;
+        else if (!strcmp(op_str, "*")) op = OP_MUL;
+        else if (!strcmp(op_str, "/")) op = OP_DIV;
+        else if (!strcmp(op_str, "%")) op = OP_MOD;
+
+        ASTNode* right_operand = expr_to_ast(right_node);
+        ASTNode* new_left = create_binary_op_node(op, strdup(op_str), left_operand, right_operand, &TYPE_OBJECT);
+
+        // Recursividad: procesa el resto de la cadena
+        if (next_primed) {
+            return process_primed_expression(next_primed, new_left);
+        } else {
+            return new_left;
         }
     }
-    
+
+    // Si no hay operador, retorna el operando izquierdo
     return left_operand;
 }
 
