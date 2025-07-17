@@ -42,6 +42,10 @@ typedef enum
     TOKEN_AND,
     TOKEN_OR,
     TOKEN_NOT,
+    
+    // Palabras reservadas para operadores lógicos
+    TOKEN_AND_KEYWORD,
+    TOKEN_OR_KEYWORD,
 
     // Operadores especiales
     TOKEN_CONCAT,

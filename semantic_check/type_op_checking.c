@@ -489,7 +489,7 @@ void visit_base_func(Visitor *v, ASTNode *node)
     if (simulated_call_node->return_type == &TYPE_ERROR) {
         node->return_type = &TYPE_ERROR;
         node->dynamic_type = &TYPE_ERROR;
-        free_ast(simulated_call_node); // Libera el nodo temporal
+        // free_ast(simulated_call_node); // Libera el nodo temporal - COMENTADO PARA EVITAR SEGFAULT
         return;
     }
 
@@ -502,6 +502,6 @@ void visit_base_func(Visitor *v, ASTNode *node)
 
     fprintf(stderr,"2-aquiiiiii\n");
 
-    free_ast(simulated_call_node); // Libera el nodo temporal
+    // free_ast(simulated_call_node); // Libera el nodo temporal - COMENTADO PARA EVITAR SEGFAULT
     // Ya no reportamos un error aquí. Si llegamos hasta aquí, la base call es semánticamente válida.
 }

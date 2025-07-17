@@ -1,6 +1,6 @@
 Program      -> StmtList
 StmtList     -> TerminatedStmt StmtList | ε
-TerminatedStmt -> Stmt SEMICOLON
+TerminatedStmt -> Stmt SEMICOLON | Stmt
 Stmt         -> Expr | WhileStmt | ForStmt | BlockStmt | FunctionDef | TypeDef
 FunctionDef  -> FUNCTION ID LPAREN ArgIdList RPAREN TypeAnnotation FunctionBody
 TypeDef      -> TYPE ID TypeParams TypeInheritance LBRACKET TypeBody RBRACKET
@@ -16,7 +16,8 @@ MethodDef    -> ID LPAREN ArgIdList RPAREN FunctionBody
 ArgIdList    -> ArgId ArgIdListTail | ε
 ArgIdListTail-> COMMA ArgId ArgIdListTail | ε
 ArgId        -> ID TypeAnnotation
-FunctionBody -> ARROW Expr | BlockStmt
+FunctionBody -> ARROW FunctionBodyExpr | BlockStmt
+FunctionBodyExpr -> Expr | WhileStmt | ForStmt
 WhileStmt    -> WHILE Expr WhileBody
 WhileBody    -> BlockStmt | Expr
 ForStmt      -> FOR LPAREN ID IN Expr RPAREN ForBody
@@ -29,9 +30,7 @@ VarBindingList -> VarBinding VarBindingListTail
 VarBindingListTail -> COMMA VarBinding VarBindingListTail | ε
 VarBinding   -> ID TypeAnnotation EQUALS Expr
 TypeAnnotation -> COLON ID | ε
-IfExpr       -> IF LPAREN Expr RPAREN IfBody ElifList ELSE IfBody
-ElifList     -> ElifBranch ElifList | ε
-ElifBranch   -> ELIF LPAREN Expr RPAREN IfBody
+IfExpr       -> IF LPAREN Expr RPAREN IfBody ELSE IfBody | IF LPAREN Expr RPAREN IfBody
 IfBody       -> BlockStmt | Expr
 OrExpr       -> AndExpr OrExpr'
 OrExpr'      -> OR AndExpr OrExpr' | ε
@@ -50,7 +49,7 @@ Factor'      -> POWER Power Factor' | ε
 Power        -> Unary
 Unary        -> MINUS Unary | Primary AsExpr
 AsExpr       -> AS ID AsExpr | ε
-Primary      -> NUMBER | STRING | BOOLEAN | ID PrimaryTail | LPAREN Expr RPAREN | NEW ID LPAREN ArgList RPAREN | SELF PrimaryTail | BASE LPAREN ArgList RPAREN
+Primary      -> NUMBER | STRING | BOOLEAN | ID PrimaryTail | LPAREN Expr RPAREN | NEW ID LPAREN ArgList RPAREN | SELF PrimaryTail | BASE LPAREN ArgList RPAREN | RANGE LPAREN Expr COMMA Expr RPAREN
 PrimaryTail  -> LPAREN ArgList RPAREN PrimaryTail | DOT ID PrimaryTail | DEQUALS Expr | EQUALS Expr | ε
 ArgList      -> Expr ArgListTail | ε
 ArgListTail  -> COMMA Expr ArgListTail | ε 

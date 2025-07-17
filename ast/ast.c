@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Definir la variable global line_num
+int line_num = 1;
+
 // method to create program node or block node
 ASTNode *create_program_node(ASTNode **statements, int count, NodeType type)
 {
@@ -33,6 +36,7 @@ ASTNode *create_number_node(double value)
     node->dynamic_type = &TYPE_NUMBER;
     node->data.number_value = value;
     node->derivations = NULL;
+
     return node;
 }
 
@@ -46,7 +50,7 @@ ASTNode *create_string_node(char *value)
     node->context = create_context(NULL);
     node->return_type = &TYPE_STRING;
     node->dynamic_type = &TYPE_STRING;
-    node->data.string_value = value;
+    node->data.string_value = value ? strdup(value) : NULL;
     node->derivations = NULL;
     return node;
 }
@@ -61,7 +65,7 @@ ASTNode *create_boolean_node(char *value)
     node->context = create_context(NULL);
     node->return_type = &TYPE_BOOLEAN;
     node->dynamic_type = &TYPE_BOOLEAN;
-    node->data.string_value = value;
+    node->data.string_value = value ? strdup(value) : NULL;
     node->derivations = NULL;
     return node;
 }
@@ -77,7 +81,7 @@ ASTNode *create_variable_node(char *name, char *type, int is_param)
     node->context = create_context(NULL);
     node->return_type = &TYPE_OBJECT;
     node->dynamic_type = &TYPE_OBJECT;
-    node->data.variable_name = name;
+    node->data.variable_name = name ? strdup(name) : NULL;
     node->derivations = NULL;
 
     if (type)
@@ -96,7 +100,7 @@ ASTNode *create_binary_op_node(Operator op, char *op_name, ASTNode *left, ASTNod
     node->context = create_context(NULL);
     node->return_type = return_type;
     node->dynamic_type = return_type;
-    node->data.op_node.op_name = op_name;
+    node->data.op_node.op_name = op_name ? strdup(op_name) : NULL;
     node->data.op_node.op = op;
     node->data.op_node.left = left;
     node->data.op_node.right = right;
@@ -114,12 +118,40 @@ ASTNode *create_unary_op_node(Operator op, char *op_name, ASTNode *operand, Type
     node->context = create_context(NULL);
     node->return_type = return_type;
     node->dynamic_type = return_type;
-    node->data.op_node.op_name = op_name;
+    node->data.op_node.op_name = op_name ? strdup(op_name) : NULL;
     node->data.op_node.op = op;
     node->data.op_node.left = operand;
     node->data.op_node.right = NULL;
     node->derivations = NULL;
     return node;
+}
+
+// Función auxiliar para clonar nodos AST
+ASTNode* clone_ast_node(ASTNode* original) {
+    if (!original) return NULL;
+    
+    ASTNode* clone = malloc(sizeof(ASTNode));
+    memcpy(clone, original, sizeof(ASTNode));
+    
+    // Crear nuevos scope y context
+    clone->scope = create_scope(NULL);
+    clone->context = create_context(NULL);
+    
+    // Clonar strings si existen
+    if (original->type == NODE_VARIABLE && original->data.variable_name) {
+        clone->data.variable_name = strdup(original->data.variable_name);
+    }
+    if (original->type == NODE_STRING && original->data.string_value) {
+        clone->data.string_value = strdup(original->data.string_value);
+    }
+    if (original->type == NODE_BOOLEAN && original->data.string_value) {
+        clone->data.string_value = strdup(original->data.string_value);
+    }
+    if (original->type == NODE_FUNC_CALL && original->data.func_node.name) {
+        clone->data.func_node.name = strdup(original->data.func_node.name);
+    }
+    
+    return clone;
 }
 
 // method to create assignment node or destructive assignment node
@@ -133,10 +165,10 @@ ASTNode *create_assignment_node(char *var, ASTNode *value, char *type_name, Node
     node->dynamic_type = &TYPE_VOID;
     node->scope = create_scope(NULL);
     node->context = create_context(NULL);
-    node->data.op_node.left = create_variable_node(var, NULL, 0);
-    node->data.op_node.left->static_type = type_name;
-    node->data.op_node.right = value;
-    node->derivations = add_node_list(value, NULL);
+    node->data.op_node.left = create_variable_node(var ? strdup(var) : NULL, NULL, 0);
+    node->data.op_node.left->static_type = type_name ? strdup(type_name) : NULL;
+    node->data.op_node.right = clone_ast_node(value);
+    node->derivations = add_node_list(node->data.op_node.right, NULL);
     return node;
 }
 
@@ -150,7 +182,7 @@ ASTNode *create_func_call_node(char *name, ASTNode **args, int arg_count)
     node->context = create_context(NULL);
     node->return_type = &TYPE_OBJECT;
     node->dynamic_type = &TYPE_OBJECT;
-    node->data.func_node.name = name;
+    node->data.func_node.name = name ? strdup(name) : NULL;
     node->checked = 0;
     node->data.func_node.args = malloc(sizeof(ASTNode *) * arg_count);
     for (int i = 0; i < arg_count; i++)
@@ -173,7 +205,7 @@ ASTNode *create_func_dec_node(char *name, ASTNode **args, int arg_count, ASTNode
     node->scope = create_scope(NULL);
     node->context = create_context(NULL);
     node->static_type = ret_type;
-    node->data.func_node.name = name;
+    node->data.func_node.name = name ? strdup(name) : NULL;
     node->checked = 0;
     node->data.func_node.args = malloc(sizeof(ASTNode *) * arg_count);
     for (int i = 0; i < arg_count; i++)
@@ -196,14 +228,16 @@ ASTNode *create_let_in_node(ASTNode **declarations, int dec_count, ASTNode *body
     node->dynamic_type = &TYPE_OBJECT;
     node->scope = create_scope(NULL);
     node->context = create_context(NULL);
-    node->data.func_node.name = "";
-    node->data.func_node.args = malloc(sizeof(ASTNode *) * dec_count);
+    
+    // Usar program_node para almacenar las declaraciones del let-in
+    node->data.program_node.statements = malloc(sizeof(ASTNode *) * dec_count);
     for (int i = 0; i < dec_count; i++)
     {
-        node->data.func_node.args[i] = declarations[i];
+        node->data.program_node.statements[i] = declarations[i];
     }
-    node->data.func_node.arg_count = dec_count;
-    node->data.func_node.body = body;
+    node->data.program_node.count = dec_count;
+    
+    // Almacenar el cuerpo en derivations
     node->derivations = add_node_list(body, NULL);
     return node;
 }
@@ -272,7 +306,7 @@ ASTNode *create_for_loop_node(char *var_name, ASTNode **params, ASTNode *body, i
     node->dynamic_type = &TYPE_OBJECT;
     node->scope = create_scope(NULL);
     node->context = create_context(NULL);
-    node->data.func_node.name = var_name;
+    node->data.func_node.name = var_name ? strdup(var_name) : NULL;
     node->checked = 0;
     node->data.func_node.args = malloc(sizeof(ASTNode *) * count);
     for (int i = 0; i < count; i++)
@@ -293,7 +327,7 @@ ASTNode *create_test_casting_type_node(ASTNode *exp, char *type_name, int test)
     node->type = test ? NODE_TEST_TYPE : NODE_CAST_TYPE;
     node->return_type = test ? &TYPE_BOOLEAN : &TYPE_OBJECT;
     node->dynamic_type = test ? &TYPE_BOOLEAN : &TYPE_OBJECT;
-    node->data.cast_test.type_name = type_name;
+    node->data.cast_test.type_name = type_name ? strdup(type_name) : NULL;
     node->scope = create_scope(NULL);
     node->context = create_context(NULL);
     node->data.cast_test.exp = exp;
@@ -313,8 +347,8 @@ ASTNode *create_type_dec_node(
     node->dynamic_type = &TYPE_VOID;
     node->scope = create_scope(NULL);
     node->context = create_context(NULL);
-    node->data.type_node.name = name;
-    node->data.type_node.parent_name = parent_name;
+    node->data.type_node.name = name ? strdup(name) : NULL;
+    node->data.type_node.parent_name = parent_name ? strdup(parent_name) : NULL;
     // node->data.type_node.parent = &TYPE_OBJECT;
     node->data.type_node.p_args = malloc(sizeof(ASTNode *) * p_param_count);
     for (int i = 0; i < p_param_count; i++)
@@ -354,7 +388,7 @@ ASTNode *create_type_instance_node(char *name, ASTNode **args, int arg_count)
     node->type = NODE_TYPE_INST;
     node->scope = create_scope(NULL);
     node->context = create_context(NULL);
-    node->data.type_node.name = name;
+    node->data.type_node.name = name ? strdup(name) : NULL;
     node->data.type_node.args = malloc(sizeof(ASTNode *) * arg_count);
     for (int i = 0; i < arg_count; i++)
     {
@@ -422,93 +456,176 @@ ASTNode *create_base_func_node(ASTNode **args, int arg_count)
 // method to free an AST node
 void free_ast(ASTNode *node)
 {
-    fprintf(stderr, "Vamos a liberar el AST\n");
+    if (!node)
+    {
+        return;
+    }
 
-    // if (!node)
-    // {
-    //     return;
-    // }
+    // Verificar si el nodo ya fue liberado
+    if (node->line == -1) {
+        return; // Ya fue liberado
+    }
 
-    // switch (node->type)
-    // {
-    // case NODE_BINARY_OP:
-    // case NODE_UNARY_OP:
-    // case NODE_ASSIGNMENT:
-    // case NODE_D_ASSIGNMENT:
-    // case NODE_LOOP:
-    // case NODE_TYPE_GET_ATTR:
-    //     free_ast(node->data.op_node.left);
-    //     free_ast(node->data.op_node.right);
-    //     break;
-    // case NODE_PROGRAM:
-    // case NODE_BLOCK:
-    //     for (int i = 0; i < node->data.program_node.count; i++)
-    //     {
-    //         free_ast(node->data.program_node.statements[i]);
-    //     }
-    //     free(node->data.program_node.statements);
-    //     break;
-    // case NODE_FUNC_CALL:
-    //     fprintf(stderr, "Estamos liberando una llamada a funcion con %d\n", node->data.func_node.arg_count);
-    //     for (int i = 0; i < node->data.func_node.arg_count; i++)
-    //     {
-    //         free_ast(node->data.func_node.args[i]);
-    //     }
-    //     break;
-    // case NODE_BASE_FUNC:
-    //     fprintf(stderr, "Estamos liberando una llamada a base funcion %d\n", node->data.func_node.arg_count);
-    //     for (int i = 0; i < node->data.func_node.arg_count; i++)
-    //     {
-    //         //fprintf(stderr,"aqui no hay nada\n");
-    //         free_ast(node->data.func_node.args[i]);
-    //     }
-    //     break;
-    // case NODE_FUNC_DEC:
-    // case NODE_LET_IN:
-    //     for (int i = 0; i < node->data.func_node.arg_count; i++)
-    //     {
-    //         free_ast(node->data.func_node.args[i]);
-    //     }
-    //     free_ast(node->data.func_node.body);
-    //     break;
-    // case NODE_CONDITIONAL:
-    // case NODE_TYPE_SET_ATTR:
-    //     free_ast(node->data.cond_node.body_true);
-    //     free_ast(node->data.cond_node.body_false);
-    //     free_ast(node->data.cond_node.cond);
-    //     break;
-    // // case NODE_TEST_TYPE:
-    // // case NODE_CAST_TYPE:
-    // //     free_ast(node->data.cast_test.exp);
-    // //     free(node->data.cast_test.type);
-    // //     break;
-    // case NODE_TYPE_DEC:
-    //     for (int i = 0; i < node->data.type_node.arg_count; i++)
-    //     {
-    //         free_ast(node->data.type_node.args[i]);
-    //     }
-    //     for (int i = 0; i < node->data.type_node.def_count; i++)
-    //     {
-    //         free_ast(node->data.type_node.definitions[i]);
-    //     }
-    //     for (int i = 0; i < node->data.type_node.p_arg_count; i++)
-    //     {
-    //         free_ast(node->data.type_node.p_args[i]);
-    //     }
-    //     break;
-    // case NODE_TYPE_INST:
-    //     for (int i = 0; i < node->data.type_node.arg_count; i++)
-    //     {
-    //         free_ast(node->data.type_node.args[i]);
-    //     }
-    //     break;
-    // default:
-    //     break;
-    // }
-    // destroy_scope(node->scope);
-    // destroy_context(node->context);
-    // // free(node);
-    // node = NULL;
+    // Marcar el nodo como liberado ANTES de liberar los hijos
+    node->line = -1;
+
+
+
+    switch (node->type)
+    {
+    case NODE_BINARY_OP:
+    case NODE_UNARY_OP:
+    case NODE_ASSIGNMENT:
+    case NODE_D_ASSIGNMENT:
+    case NODE_LOOP:
+    case NODE_TYPE_GET_ATTR:
+        if (node->data.op_node.left) {
+            free_ast(node->data.op_node.left);
+        }
+        if (node->data.op_node.right) {
+            free_ast(node->data.op_node.right);
+        }
+        break;
+    case NODE_PROGRAM:
+    case NODE_BLOCK:
+        if (node->data.program_node.statements) {
+            for (int i = 0; i < node->data.program_node.count; i++)
+            {
+                if (node->data.program_node.statements[i]) {
+                    free_ast(node->data.program_node.statements[i]);
+                }
+            }
+            free(node->data.program_node.statements);
+        }
+        break;
+    case NODE_FUNC_CALL:
+        for (int i = 0; i < node->data.func_node.arg_count; i++)
+        {
+            if (node->data.func_node.args[i]) {
+                free_ast(node->data.func_node.args[i]);
+            }
+        }
+        if (node->data.func_node.args) {
+            free(node->data.func_node.args);
+        }
+        break;
+    case NODE_BASE_FUNC:
+        for (int i = 0; i < node->data.func_node.arg_count; i++)
+        {
+            if (node->data.func_node.args[i]) {
+                free_ast(node->data.func_node.args[i]);
+            }
+        }
+        if (node->data.func_node.args) {
+            free(node->data.func_node.args);
+        }
+        break;
+    case NODE_FUNC_DEC:
+        for (int i = 0; i < node->data.func_node.arg_count; i++)
+        {
+            if (node->data.func_node.args[i]) {
+                free_ast(node->data.func_node.args[i]);
+            }
+        }
+        if (node->data.func_node.args) {
+            free(node->data.func_node.args);
+        }
+        if (node->data.func_node.body) {
+            free_ast(node->data.func_node.body);
+        }
+        break;
+    case NODE_LET_IN:
+        // Liberar las declaraciones
+        if (node->data.program_node.statements) {
+            for (int i = 0; i < node->data.program_node.count; i++)
+            {
+                if (node->data.program_node.statements[i]) {
+                    free_ast(node->data.program_node.statements[i]);
+                }
+            }
+            free(node->data.program_node.statements);
+        }
+        // Liberar el cuerpo desde derivations
+        if (node->derivations && node->derivations->first) {
+            free_ast(node->derivations->first->value);
+        }
+        break;
+    case NODE_CONDITIONAL:
+    case NODE_TYPE_SET_ATTR:
+        free_ast(node->data.cond_node.body_true);
+        free_ast(node->data.cond_node.body_false);
+        free_ast(node->data.cond_node.cond);
+        break;
+    case NODE_TEST_TYPE:
+    case NODE_CAST_TYPE:
+        free_ast(node->data.cast_test.exp);
+        free(node->data.cast_test.type_name);
+        break;
+    case NODE_TYPE_DEC:
+        for (int i = 0; i < node->data.type_node.arg_count; i++)
+        {
+            free_ast(node->data.type_node.args[i]);
+        }
+        for (int i = 0; i < node->data.type_node.def_count; i++)
+        {
+            free_ast(node->data.type_node.definitions[i]);
+        }
+        for (int i = 0; i < node->data.type_node.p_arg_count; i++)
+        {
+            free_ast(node->data.type_node.p_args[i]);
+        }
+        free(node->data.type_node.args);
+        free(node->data.type_node.definitions);
+        free(node->data.type_node.p_args);
+        break;
+    case NODE_TYPE_INST:
+        for (int i = 0; i < node->data.type_node.arg_count; i++)
+        {
+            free_ast(node->data.type_node.args[i]);
+        }
+        free(node->data.type_node.args);
+        break;
+    default:
+        break;
+    }
+    
+    // Liberar strings
+    switch (node->type)
+    {
+    case NODE_VARIABLE:
+        free(node->data.variable_name);
+        break;
+    case NODE_STRING:
+    case NODE_BOOLEAN:
+        free(node->data.string_value);
+        break;
+    case NODE_FUNC_CALL:
+    case NODE_FUNC_DEC:
+        free(node->data.func_node.name);
+        break;
+    case NODE_LET_IN:
+        // No hay strings que liberar para let-in
+        break;
+    case NODE_BINARY_OP:
+    case NODE_UNARY_OP:
+        free(node->data.op_node.op_name);
+        break;
+    case NODE_TYPE_DEC:
+    case NODE_TYPE_INST:
+        free(node->data.type_node.name);
+        free(node->data.type_node.parent_name);
+        break;
+    case NODE_ASSIGNMENT:
+    case NODE_D_ASSIGNMENT:
+        // No liberar aquí porque el nodo left ya se liberará en su propio caso
+        break;
+    default:
+        break;
+    }
+    
+    destroy_scope(node->scope);
+    destroy_context(node->context);
+    free(node);
 }
 
 // method to print an AST node
@@ -549,8 +666,16 @@ void print_ast(ASTNode *node, int indent)
         print_ast(node->data.func_node.body, indent + 1);
         break;
     case NODE_LET_IN:
-        printf("Let-in: %s\n", node->data.func_node.name);
-        print_ast(node->data.func_node.body, indent + 1);
+        printf("Let-in:\n");
+        // Imprimir las declaraciones
+        for (int i = 0; i < node->data.program_node.count; i++)
+        {
+            print_ast(node->data.program_node.statements[i], indent + 1);
+        }
+        // Imprimir el cuerpo desde derivations
+        if (node->derivations && node->derivations->first) {
+            print_ast(node->derivations->first->value, indent + 1);
+        }
         break;
     case NODE_NUMBER:
         printf("Number: %g\n", node->data.number_value);

@@ -1,6 +1,7 @@
 #include "lexer_generator.h"
 #include "patterns.h"
 #include "regex_parser.h"
+#include "error_handler.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -17,6 +18,7 @@ Lexer *lexer_create(void)
     lexer->pos = 0;
     lexer->line = 1;
     lexer->column = 1;
+    lexer->last_error = NULL;
 
     lexer_init(lexer);
     return lexer;
@@ -35,6 +37,11 @@ void lexer_destroy(Lexer *lexer)
     if (lexer->input)
     {
         free(lexer->input);
+    }
+
+    if (lexer->last_error)
+    {
+        destroy_lexer_error(lexer->last_error);
     }
 
     free(lexer);
@@ -230,6 +237,20 @@ Token *lexer_next_token(Lexer *lexer)
 
     // Error: token no reconocido
     char error_char[2] = {lexer->input[lexer->pos], '\0'};
+    
+    // Crear error detallado
+    if (lexer->last_error) {
+        destroy_lexer_error(lexer->last_error);
+    }
+    
+    lexer->last_error = create_lexer_error(
+        ERROR_UNKNOWN_CHARACTER,
+        lexer->line,
+        lexer->column,
+        "Carácter no reconocido por el lexer",
+        error_char
+    );
+    
     Token *error_token = create_token(TOKEN_ERROR, error_char, lexer->line, lexer->column);
     lexer->pos++;
     lexer->column++;
@@ -272,4 +293,33 @@ void lexer_set_input(Lexer *lexer, const char *input)
     lexer->pos = 0;
     lexer->line = 1;
     lexer->column = 1;
+    
+    // Limpiar error anterior
+    if (lexer->last_error) {
+        destroy_lexer_error(lexer->last_error);
+        lexer->last_error = NULL;
+    }
+}
+
+// Funciones de manejo de errores
+LexerError *lexer_get_last_error(Lexer *lexer)
+{
+    return lexer ? lexer->last_error : NULL;
+}
+
+void lexer_clear_error(Lexer *lexer)
+{
+    if (!lexer) return;
+    
+    if (lexer->last_error) {
+        destroy_lexer_error(lexer->last_error);
+        lexer->last_error = NULL;
+    }
+}
+
+void lexer_print_error(Lexer *lexer, const char *source_code)
+{
+    if (!lexer || !lexer->last_error) return;
+    
+    print_lexer_error(lexer->last_error, source_code);
 }

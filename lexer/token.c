@@ -48,6 +48,11 @@ Token *create_token(TokenType type, const char *lexeme, int line, int column)
         // Para palabras clave
         token->value.string = strdup(lexeme);
     }
+    else if (type == TOKEN_AND_KEYWORD || type == TOKEN_OR_KEYWORD)
+    {
+        // Para palabras reservadas and/or
+        token->value.string = strdup(lexeme);
+    }
     // Para otros tipos (operadores, delimitadores, etc.), value.string queda en NULL
 
     return token;
@@ -64,7 +69,9 @@ void destroy_token(Token *token)
     }
 
     // Solo liberar value.string si corresponde
-    if ((token->type == TOKEN_STRING || token->type == TOKEN_ID || (token->type >= TOKEN_FUNCTION && token->type <= TOKEN_E)) && token->value.string)
+    if ((token->type == TOKEN_STRING || token->type == TOKEN_ID || 
+         (token->type >= TOKEN_FUNCTION && token->type <= TOKEN_E) ||
+         token->type == TOKEN_AND_KEYWORD || token->type == TOKEN_OR_KEYWORD) && token->value.string)
     {
         free(token->value.string);
         token->value.string = NULL;
@@ -138,6 +145,10 @@ const char *get_token_name(TokenType type)
     case TOKEN_AND:
         return "AND";
     case TOKEN_OR:
+        return "OR";
+    case TOKEN_AND_KEYWORD:
+        return "AND";
+    case TOKEN_OR_KEYWORD:
         return "OR";
     case TOKEN_NOT:
         return "NOT";

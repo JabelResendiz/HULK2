@@ -5,6 +5,7 @@
 #include "ll1_table.h"
 #include "first_calculator.h"
 #include "follow_calculator.h"
+#include "../lexer/error_handler.h"
 
 // ===== PARSER LL(1) =====
 
@@ -18,6 +19,7 @@ typedef struct
     LL1Table *table;      // Tabla LL(1)
     CSTNode *root;        // Raíz del árbol CST
     int debug_mode;       // Modo debug para imprimir pasos
+    ParserError *last_error; // Último error del parser
 } LL1Parser;
 
 // ===== FUNCIONES DEL PARSER =====
@@ -59,5 +61,10 @@ void print_cst_tree(CSTNode *root, int depth);
 
 // Imprimir información de debug
 void print_debug_info(LL1Parser *parser, const char *message);
+
+// Funciones de manejo de errores del parser
+ParserError *parser_get_last_error(LL1Parser *parser);
+void parser_clear_error(LL1Parser *parser);
+void parser_print_error(LL1Parser *parser, const char *source_code);
 
 #endif // LL1_PARSER_H

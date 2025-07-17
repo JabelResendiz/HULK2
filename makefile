@@ -9,10 +9,6 @@ RESET := \033[0m
 CC = clang
 CFLAGS = -Wall -g -I. $(shell llvm-config --cflags) -O0
 LDFLAGS = $(shell llvm-config --ldflags --libs core) -lm
-LEXFLAGS = -w
-YFLAGS = -d -y -v
-LEX = flex
-YACC = bison
 
 SRC_DIR = .
 AST_DIR = $(SRC_DIR)/ast
@@ -41,51 +37,22 @@ $(BUILD_DIR):
 	@mkdir -p $(BUILD_DIR)
 
 # El directorio build se pone como dependencia order-only (con el símbolo |)
-$(EXEC): lex.yy.o y.tab.o $(AST_DIR)/ast.o $(SRC_DIR)/main.o \
-	$(VISITOR_DIR)/llvm_visitor.o  $(SCOPE_DIR)/llvm_scope.o $(UTILS_DIR)/utils.o \
-    $(SEMANTIC_DIR)/unification.o $(SEMANTIC_DIR)/type_op_checking.o $(SEMANTIC_DIR)/type_checking.o \
+$(EXEC): $(SRC_DIR)/main.o \
+	$(AST_DIR)/ast.o $(UTILS_DIR)/utils.o \
+	$(SEMANTIC_DIR)/unification.o $(SEMANTIC_DIR)/type_op_checking.o $(SEMANTIC_DIR)/type_checking.o \
 	$(SEMANTIC_DIR)/cond_loop_checking.o $(SEMANTIC_DIR)/function_checking.o $(SEMANTIC_DIR)/variable_checking.o \
 	$(SEMANTIC_DIR)/basic_checking.o $(SEMANTIC_DIR)/semantic.o $(SCOPE_DIR)/scope.o $(SCOPE_DIR)/context.o \
-	$(VISITOR_DIR)/visitor.o \
+	$(VISITOR_DIR)/visitor.o $(VISITOR_DIR)/llvm_visitor.o $(SCOPE_DIR)/llvm_scope.o \
 	$(CODEGEN_DIR)/basic.o $(CODEGEN_DIR)/codegen.o $(CODEGEN_DIR)/control.o $(CODEGEN_DIR)/function.o $(CODEGEN_DIR)/getter.o \
 	$(CODEGEN_DIR)/init_codegen.o $(CODEGEN_DIR)/instance.o $(CODEGEN_DIR)/op.o $(CODEGEN_DIR)/visitor_llvm.o $(CODEGEN_DIR)/types.o\
 	$(CODEGEN_DIR)/setter.o $(CODEGEN_DIR)/cast.o\
 	$(TYPE_DIR)/type.o \
-	$(LEXER_DIR)/token.o $(LEXER_DIR)/nfa.o $(LEXER_DIR)/dfa.o $(LEXER_DIR)/regex_parser.o $(LEXER_DIR)/lexer_generator.o \
-	$(PARSER_DIR)/ll1_parser.o $(PARSER_DIR)/grammar_parser.o $(PARSER_DIR)/first_calculator.o $(PARSER_DIR)/follow_calculator.o $(PARSER_DIR)/ll1_table.o $(PARSER_DIR)/ll1_structures.o $(PARSER_DIR)/cst_to_ast.o $(PARSER_DIR)/cst_to_ast2.o| $(BUILD_DIR)
+	$(LEXER_DIR)/token.o $(LEXER_DIR)/nfa.o $(LEXER_DIR)/dfa.o $(LEXER_DIR)/regex_parser.o $(LEXER_DIR)/lexer_generator.o $(LEXER_DIR)/error_handler.o \
+	$(PARSER_DIR)/ll1_parser.o $(PARSER_DIR)/grammar_parser.o $(PARSER_DIR)/first_calculator.o $(PARSER_DIR)/follow_calculator.o $(PARSER_DIR)/ll1_table.o $(PARSER_DIR)/ll1_structures.o $(PARSER_DIR)/cst_to_ast.o | $(BUILD_DIR)
 
 	@printf "$(CYAN)🔗 Getting ready...$(RESET)\n";
 	@$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 	@printf "$(CYAN)🔄 Compiling...$(RESET)\n";
-
-
-# Reglas para generar el parser y lexer
-y.tab.c y.tab.h: $(PARSER_DIR)/parser.y
-	@printf "$(CYAN)🔄 Generating parser...$(RESET)\n";
-	@$(YACC) $(YFLAGS) $< || (echo "Bison failed to process parser.y"; exit 1)
-
-lex.yy.c: $(LEXER_DIR)/lexer.l y.tab.h
-	@printf "$(CYAN)🔄 Generating lexer...$(RESET)\n";
-	@$(LEX) $(LEXFLAGS) $< || (echo "Flex failed to process lexer.l"; exit 1)
-
-$(VISITOR_DIR)/llvm_visitor.o: $(VISITOR_DIR)/llvm_visitor.c $(VISITOR_DIR)/llvm_visitor.h
-	@$(CC) $(CFLAGS) -c $< -o $@
-
-# $(CODE_GEN_DIR)/llvm_codegen.o: $(CODE_GEN_DIR)/llvm_codegen.c $(CODE_GEN_DIR)/llvm_codegen.h $(AST_DIR)/ast.h $(VISITOR_DIR)/llvm_visitor.h
-# 	@echo "⚡ Compiling module LLVM..."
-# 	@$(CC) $(CFLAGS) -c $< -o $@
-
-# $(CODE_GEN_DIR)/llvm_builtins.o: $(CODE_GEN_DIR)/llvm_builtins.c $(CODE_GEN_DIR)/llvm_builtins.h $(VISITOR_DIR)/llvm_visitor.h
-# 	@$(CC) $(CFLAGS) -c $< -o $@
-
-# $(SCOPE_DIR)/llvm_scope.o: $(SCOPE_DIR)/llvm_scope.c $(SCOPE_DIR)/llvm_scope.h
-# 	@$(CC) $(CFLAGS) -c $< -o $@
-
-# $(CODE_GEN_DIR)/llvm_string.o: $(CODE_GEN_DIR)/llvm_string.c $(CODE_GEN_DIR)/llvm_string.h
-# 	@$(CC) $(CFLAGS) -c $< -o $@
-
-# $(CODE_GEN_DIR)/llvm_operators.o: $(CODE_GEN_DIR)/llvm_operators.c $(CODE_GEN_DIR)/llvm_operators.h $(VISITOR_DIR)/llvm_visitor.h
-# 	@$(CC) $(CFLAGS) -c $< -o $@
 
 # CODEGEN
 
@@ -144,6 +111,12 @@ $(SCOPE_DIR)/context.o: $(SCOPE_DIR)/context.c
 $(VISITOR_DIR)/visitor.o: $(VISITOR_DIR)/visitor.c $(VISITOR_DIR)/visitor.h
 	@$(CC) $(CFLAGS) -c $< -o $@
 
+$(VISITOR_DIR)/llvm_visitor.o: $(VISITOR_DIR)/llvm_visitor.c $(VISITOR_DIR)/llvm_visitor.h
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(SCOPE_DIR)/llvm_scope.o: $(SCOPE_DIR)/llvm_scope.c $(SCOPE_DIR)/llvm_scope.h
+	@$(CC) $(CFLAGS) -c $< -o $@
+
 $(TYPE_DIR)/type.o: $(TYPE_DIR)/type.c $(TYPE_DIR)/type.h
 	@$(CC) $(CFLAGS) -c $< -o $@
 
@@ -181,7 +154,10 @@ $(LEXER_DIR)/dfa.o: $(LEXER_DIR)/dfa.c $(LEXER_DIR)/dfa.h
 $(LEXER_DIR)/regex_parser.o: $(LEXER_DIR)/regex_parser.c $(LEXER_DIR)/regex_parser.h
 	@$(CC) $(CFLAGS) -c $< -o $@
 
-$(LEXER_DIR)/lexer_generator.o: $(LEXER_DIR)/lexer_generator.c $(LEXER_DIR)/lexer_generator.h
+$(LEXER_DIR)/lexer_generator.o: $(LEXER_DIR)/lexer_generator.c $(LEXER_DIR)/lexer_generator.h $(LEXER_DIR)/error_handler.h
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+$(LEXER_DIR)/error_handler.o: $(LEXER_DIR)/error_handler.c $(LEXER_DIR)/error_handler.h
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 # PARSER LL(1) - Reglas para el parser LL(1)
@@ -204,9 +180,6 @@ $(PARSER_DIR)/ll1_structures.o: $(PARSER_DIR)/ll1_structures.c $(PARSER_DIR)/ll1
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 $(PARSER_DIR)/cst_to_ast.o: $(PARSER_DIR)/cst_to_ast.c $(PARSER_DIR)/cst_to_ast.h
-	@$(CC) $(CFLAGS) -c $< -o $@
-
-$(PARSER_DIR)/cst_to_ast2.o: $(PARSER_DIR)/cst_to_ast2.c $(PARSER_DIR)/cst_to_ast2.h
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 # Regla genérica para compilar cualquier archivo .c en .o
@@ -234,7 +207,7 @@ debug:
 clean:
 	@echo "$(CYAN)🧹 Cleaning project...$(RESET)"
 	@rm -rf $(BUILD_DIR)
-	@rm -f *.o $(EXEC) y.tab.* lex.yy.c *.output y.* output.ll program
+	@rm -f *.o $(EXEC) output.ll program
 	@rm -f $(AST_DIR)/*.o
 	@rm -f $(CODE_GEN_DIR)/*.o
 	@rm -f $(SEMANTIC_DIR)/*.o

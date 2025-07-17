@@ -1,5 +1,6 @@
 #include "ll1_parser.h"
 #include "ll1_structures.h"
+#include "../lexer/error_handler.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -76,6 +77,7 @@ LL1Parser *create_ll1_parser(Grammar *grammar, LL1Table *table)
     parser->table = table;
     parser->root = NULL;
     parser->debug_mode = 1;
+    parser->last_error = NULL;
     return parser;
 }
 
@@ -96,6 +98,12 @@ void free_ll1_parser(LL1Parser *parser)
     if (parser->root)
     {
         free_cst_tree(parser->root);
+    }
+
+    // Liberar último error
+    if (parser->last_error)
+    {
+        destroy_parser_error(parser->last_error);
     }
 
     free(parser);
@@ -181,13 +189,29 @@ CSTNode *parse_iterative(LL1Parser *parser)
 {
     if (!parser || !parser->grammar || !parser->table)
     {
-        printf("❌ Error: Parser, gramática o tabla no válidos\n");
+        if (parser && parser->last_error) {
+            destroy_parser_error(parser->last_error);
+        }
+        parser->last_error = create_parser_error(
+            ERROR_SYNTAX_ERROR,
+            0, 0,
+            "Parser, gramática o tabla no válidos",
+            NULL, NULL
+        );
         return NULL;
     }
 
     if (parser->token_count == 0)
     {
-        printf("❌ Error: No hay tokens para procesar\n");
+        if (parser && parser->last_error) {
+            destroy_parser_error(parser->last_error);
+        }
+        parser->last_error = create_parser_error(
+            ERROR_SYNTAX_ERROR,
+            0, 0,
+            "No hay tokens para procesar",
+            NULL, NULL
+        );
         return NULL;
     }
 
@@ -232,6 +256,8 @@ CSTNode *parse_iterative(LL1Parser *parser)
 
         print_debug_info(parser, "Procesando símbolo");
         printf("  📊 Símbolo: %s, Terminal: %s\n", symbol, current_terminal);
+        printf("  🔍 Token actual: %s = '%s' (línea %d, col %d)\n", 
+               current_token->type, current_token->value, current_token->line, current_token->column);
 
         if (is_terminal(symbol))
         {
@@ -251,7 +277,16 @@ CSTNode *parse_iterative(LL1Parser *parser)
                 }
                 else
                 {
-                    printf("❌ Error: Se esperaba EOF pero se encontró '%s'\n", current_terminal);
+                    if (parser->last_error) {
+                        destroy_parser_error(parser->last_error);
+                    }
+                    parser->last_error = create_parser_error(
+                        ERROR_UNEXPECTED_TOKEN,
+                        current_token ? current_token->line : 0,
+                        current_token ? current_token->column : 0,
+                        "Se esperaba fin de archivo",
+                        "$", current_terminal
+                    );
                     free_parse_stack(stack);
                     return NULL;
                 }
@@ -271,7 +306,16 @@ CSTNode *parse_iterative(LL1Parser *parser)
             else
             {
                 // Error de sintaxis
-                printf("❌ Error: Se esperaba '%s' pero se encontró '%s'\n", symbol, current_terminal);
+                if (parser->last_error) {
+                    destroy_parser_error(parser->last_error);
+                }
+                parser->last_error = create_parser_error(
+                    ERROR_UNEXPECTED_TOKEN,
+                    current_token ? current_token->line : 0,
+                    current_token ? current_token->column : 0,
+                    "Token inesperado",
+                    symbol, current_terminal
+                );
                 free_parse_stack(stack);
                 return NULL;
             }
@@ -289,19 +333,32 @@ CSTNode *parse_iterative(LL1Parser *parser)
 
                 if (symbol_index == -1)
                 {
-                    printf("❌ Error: No terminal '%s' no encontrado en la tabla\n", symbol);
-                    printf("📋 No terminales disponibles en la tabla:\n");
-                    for (int i = 0; i < parser->table->no_terminal_count; i++)
-                    {
-                        printf("  - %s\n", parser->table->no_terminals[i]);
+                    if (parser->last_error) {
+                        destroy_parser_error(parser->last_error);
                     }
+                    parser->last_error = create_parser_error(
+                        ERROR_INVALID_PRODUCTION,
+                        current_token ? current_token->line : 0,
+                        current_token ? current_token->column : 0,
+                        "No terminal no encontrado en la tabla",
+                        symbol, NULL
+                    );
                     free_parse_stack(stack);
                     return NULL;
                 }
 
                 if (terminal_index == -1)
                 {
-                    printf("❌ Error: Terminal '$' no encontrado en la tabla\n");
+                    if (parser->last_error) {
+                        destroy_parser_error(parser->last_error);
+                    }
+                    parser->last_error = create_parser_error(
+                        ERROR_INVALID_PRODUCTION,
+                        current_token ? current_token->line : 0,
+                        current_token ? current_token->column : 0,
+                        "Terminal '$' no encontrado en la tabla",
+                        "$", NULL
+                    );
                     free_parse_stack(stack);
                     return NULL;
                 }
@@ -309,14 +366,38 @@ CSTNode *parse_iterative(LL1Parser *parser)
                 char *production_index_str = parser->table->table[symbol_index][terminal_index];
                 if (!production_index_str)
                 {
-                    // Si no hay entrada en la tabla para $, asumir que es una producción epsilon
-                    printf("  🔧 Aplicando producción epsilon para $: %s -> ε\n", symbol);
-                    // Crear nodo epsilon
-                    CSTNode *epsilon_node = create_cst_node("ε");
-                    add_cst_child(current_node, epsilon_node);
-                    // Avanzar el token $ después de aplicar epsilon
-                    token_index++;
-                    continue;
+                    // Si no hay entrada en la tabla para $, verificar si el símbolo puede derivar a ε
+                    // Buscar en los conjuntos FIRST si contiene ε
+                    int first_index = -1;
+                    for (int i = 0; i < parser->grammar->production_count; i++)
+                    {
+                        if (strcmp(parser->grammar->productions[i]->lhs, symbol) == 0 && 
+                            parser->grammar->productions[i]->rhs_count == 0)
+                        {
+                            // Encontramos una producción epsilon para este símbolo
+                            printf("  🔧 Aplicando producción epsilon para $: %s -> ε\n", symbol);
+                            // Crear nodo epsilon
+                            CSTNode *epsilon_node = create_cst_node("ε");
+                            add_cst_child(current_node, epsilon_node);
+                            // Avanzar el token $ después de aplicar epsilon
+                            token_index++;
+                            continue;
+                        }
+                    }
+                    
+                    // Si no se encontró producción epsilon, es un error
+                    if (parser->last_error) {
+                        destroy_parser_error(parser->last_error);
+                    }
+                    parser->last_error = create_parser_error(
+                        ERROR_UNEXPECTED_TOKEN,
+                        current_token ? current_token->line : 0,
+                        current_token ? current_token->column : 0,
+                        "Token inesperado al final del archivo",
+                        symbol, current_terminal
+                    );
+                    free_parse_stack(stack);
+                    return NULL;
                 }
             }
 
@@ -324,31 +405,60 @@ CSTNode *parse_iterative(LL1Parser *parser)
             int terminal_index = get_symbol_index(current_terminal, parser->table->terminals, parser->table->terminal_count);
 
             // DEBUG: Imprimir símbolos antes de buscar
-            if (strcmp(symbol, "FunctionDef") == 0)
+            if (strcmp(symbol, "FunctionDef") == 0 || strcmp(symbol, "StmtList") == 0)
             {
-                printf("DEBUG: Buscando FunctionDef en la tabla...\n");
+                printf("DEBUG: Buscando %s en la tabla...\n", symbol);
                 printf("DEBUG: Total no terminales en tabla: %d\n", parser->table->no_terminal_count);
                 for (int i = 0; i < parser->table->no_terminal_count; i++)
                 {
                     printf("DEBUG: Tabla[%d] = '%s'\n", i, parser->table->no_terminals[i]);
                 }
+                
+                // Buscar la entrada específica en la tabla
+                int symbol_idx = get_symbol_index(symbol, parser->table->no_terminals, parser->table->no_terminal_count);
+                int terminal_idx = get_symbol_index(current_terminal, parser->table->terminals, parser->table->terminal_count);
+                if (symbol_idx != -1 && terminal_idx != -1)
+                {
+                    printf("DEBUG: Buscando M[%s, %s] = tabla[%d][%d]\n", symbol, current_terminal, symbol_idx, terminal_idx);
+                    if (parser->table->table[symbol_idx][terminal_idx])
+                    {
+                        printf("DEBUG: Encontrado: %s\n", parser->table->table[symbol_idx][terminal_idx]);
+                    }
+                    else
+                    {
+                        printf("DEBUG: NO ENCONTRADO (NULL)\n");
+                    }
+                }
             }
 
             if (symbol_index == -1)
             {
-                printf("❌ Error: No terminal '%s' no encontrado en la tabla\n", symbol);
-                printf("📋 No terminales disponibles en la tabla:\n");
-                for (int i = 0; i < parser->table->no_terminal_count; i++)
-                {
-                    printf("  - %s\n", parser->table->no_terminals[i]);
+                if (parser->last_error) {
+                    destroy_parser_error(parser->last_error);
                 }
+                parser->last_error = create_parser_error(
+                    ERROR_INVALID_PRODUCTION,
+                    current_token ? current_token->line : 0,
+                    current_token ? current_token->column : 0,
+                    "No terminal no encontrado en la tabla",
+                    symbol, NULL
+                );
                 free_parse_stack(stack);
                 return NULL;
             }
 
             if (terminal_index == -1)
             {
-                printf("❌ Error: Terminal '%s' no encontrado en la tabla\n", current_terminal);
+                if (parser->last_error) {
+                    destroy_parser_error(parser->last_error);
+                }
+                parser->last_error = create_parser_error(
+                    ERROR_INVALID_PRODUCTION,
+                    current_token ? current_token->line : 0,
+                    current_token ? current_token->column : 0,
+                    "Terminal no encontrado en la tabla",
+                    current_terminal, NULL
+                );
                 free_parse_stack(stack);
                 return NULL;
             }
@@ -356,7 +466,16 @@ CSTNode *parse_iterative(LL1Parser *parser)
             char *production_index_str = parser->table->table[symbol_index][terminal_index];
             if (!production_index_str)
             {
-                printf("❌ Error: No hay producción para M[%s, %s]\n", symbol, current_terminal);
+                if (parser->last_error) {
+                    destroy_parser_error(parser->last_error);
+                }
+                parser->last_error = create_parser_error(
+                    ERROR_INVALID_PRODUCTION,
+                    current_token ? current_token->line : 0,
+                    current_token ? current_token->column : 0,
+                    "No hay producción válida para la combinación de símbolos",
+                    symbol, current_terminal
+                );
                 free_parse_stack(stack);
                 return NULL;
             }
@@ -364,7 +483,16 @@ CSTNode *parse_iterative(LL1Parser *parser)
             int production_index = atoi(production_index_str);
             if (production_index < 0 || production_index >= parser->grammar->production_count)
             {
-                printf("❌ Error: Índice de producción inválido: %d\n", production_index);
+                if (parser->last_error) {
+                    destroy_parser_error(parser->last_error);
+                }
+                parser->last_error = create_parser_error(
+                    ERROR_INVALID_PRODUCTION,
+                    current_token ? current_token->line : 0,
+                    current_token ? current_token->column : 0,
+                    "Índice de producción inválido",
+                    NULL, NULL
+                );
                 free_parse_stack(stack);
                 return NULL;
             }
@@ -430,7 +558,16 @@ CSTNode *parse_iterative(LL1Parser *parser)
         }
         else
         {
-            printf("❌ Error: Tokens restantes sin procesar\n");
+            if (parser->last_error) {
+                destroy_parser_error(parser->last_error);
+            }
+            parser->last_error = create_parser_error(
+                ERROR_UNEXPECTED_TOKEN,
+                parser->tokens[token_index] ? parser->tokens[token_index]->line : 0,
+                parser->tokens[token_index] ? parser->tokens[token_index]->column : 0,
+                "Tokens restantes sin procesar",
+                NULL, parser->tokens[token_index] ? parser->tokens[token_index]->type : NULL
+            );
             free_parse_stack(stack);
             return NULL;
         }
@@ -474,4 +611,27 @@ void print_cst_tree(CSTNode *root, int depth)
     {
         print_cst_tree(root->children[i], depth + 1);
     }
+}
+
+// Funciones de manejo de errores del parser
+ParserError *parser_get_last_error(LL1Parser *parser)
+{
+    return parser ? parser->last_error : NULL;
+}
+
+void parser_clear_error(LL1Parser *parser)
+{
+    if (!parser) return;
+    
+    if (parser->last_error) {
+        destroy_parser_error(parser->last_error);
+        parser->last_error = NULL;
+    }
+}
+
+void parser_print_error(LL1Parser *parser, const char *source_code)
+{
+    if (!parser || !parser->last_error) return;
+    
+    print_parser_error(parser->last_error, source_code);
 }

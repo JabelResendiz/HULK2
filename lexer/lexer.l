@@ -48,6 +48,8 @@ int line_num = 1;
 "@"             { return CONCAT; }
 "!="            { return NEQUALS; }
 "!"             { return NOT; }
+"and"           { return AND_KEYWORD; }
+"or"            { return OR_KEYWORD; }
 "&"             { return AND; }
 "|"             { return OR; }
 ">="            { return EGREATER; }

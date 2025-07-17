@@ -30,6 +30,8 @@ static TokenPattern patterns[] = {
     {TOKEN_RANGE, "range", 1},
     {TOKEN_PI, "PI", 1},
     {TOKEN_E, "E", 1},
+    {TOKEN_AND_KEYWORD, "and", 1},
+    {TOKEN_OR_KEYWORD, "or", 1},
 
     // Identificadores (regex) - después de las palabras clave
     {TOKEN_ID, "[a-zA-ZñÑ][a-zA-ZñÑ0-9_]*", 0},

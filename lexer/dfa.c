@@ -27,6 +27,8 @@ int get_token_priority(TokenType type)
     case TOKEN_RANGE:
     case TOKEN_PI:
     case TOKEN_E:
+    case TOKEN_AND_KEYWORD:
+    case TOKEN_OR_KEYWORD:
         return 0;
 
     // Literales

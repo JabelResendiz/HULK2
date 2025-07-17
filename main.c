@@ -71,6 +71,13 @@ int main()
     {
         printf("%s: '%s' (línea %d, columna %d)\n", get_token_name(tok->type), tok->lexeme, tok->line, tok->column);
 
+        // Verificar si hay error del lexer
+        if (tok->type == TOKEN_ERROR) {
+            printf(RED "\n❌ Error léxico detectado:\n" RESET);
+            lexer_print_error(lexer, source);
+            break;
+        }
+
         // Convertir y almacenar para el parser LL(1)
         parser_tokens[token_count] = convert_lexer_token_to_parser_token(tok);
         token_count++;
@@ -135,18 +142,40 @@ int main()
         printf(BLUE "\n🌳 Concrete Syntax Tree (CST):\n" RESET);
         print_cst_tree(cst_root, 0);
 
-        cst_to_ast(cst_root);
+        printf(CYAN "\n[AST] Convirtiendo CST a AST...\n" RESET);
+        ASTNode *ast_root = cst_to_ast(cst_root);
+        
+        if (ast_root) {
+            printf(GREEN "✅ Conversión CST a AST exitosa!\n" RESET);
+            printf(BLUE "\n🌳 Abstract Syntax Tree (AST):\n" RESET);
+            print_ast(ast_root, 0);
+            
+            // NO liberar el AST por ahora para evitar segmentation fault
+            // free_ast(ast_root);
+        } else {
+            printf(RED "❌ Error en la conversión CST a AST\n" RESET);
+        }
 
         // NO liberar el CST aquí - free_ll1_parser se encarga de liberarlo
     }
     else
     {
         printf(RED "❌ Error en el análisis sintáctico\n" RESET);
+        
+        // Mostrar error detallado del parser
+        ParserError *parser_error = parser_get_last_error(parser);
+        if (parser_error) {
+            printf(RED "\n❌ Error de sintaxis detectado:\n" RESET);
+            parser_print_error(parser, source);
+        } else {
+            printf(RED "❌ No se pudo obtener el error del parser\n" RESET);
+        }
     }
 
     // Liberar memoria
     free(parser_tokens);
-    free_ll1_parser(parser);
+    // NO liberar el parser aquí para evitar segmentation fault
+    // free_ll1_parser(parser);
     free_ll1_table(table);
     free_follow_result(follow_result);
     free_first_result(first_result);
