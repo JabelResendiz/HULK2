@@ -3,7 +3,6 @@
 #include "cst_to_ast.h"
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 
 
 #define DEBUG(...) \

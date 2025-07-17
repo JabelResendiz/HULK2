@@ -1,4 +1,5 @@
 #include "ll1_parser.h"
+#include "ll1_structures.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -260,6 +261,10 @@ CSTNode *parse_iterative(LL1Parser *parser)
                 // Match exitoso - asignar token y avanzar
                 current_node->line = current_token->line;
                 current_node->column = current_token->column;
+
+                // Asignar el token al nodo CST
+                set_cst_token(current_node, current_token);
+
                 token_index++;
                 printf("  ✅ Match exitoso: %s\n", symbol);
             }

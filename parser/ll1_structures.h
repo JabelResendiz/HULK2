@@ -5,6 +5,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Definición completa de ParserToken
+typedef struct ParserToken
+{
+    char *type;  // Tipo de token (ID, NUMBER, etc.)
+    char *value; // Valor del token
+    int line;    // Línea en el código fuente
+    int column;  // Columna en el código fuente
+} ParserToken;
+
 // ===== ESTRUCTURAS BÁSICAS =====
 
 // Una producción: A -> α
@@ -48,6 +57,7 @@ typedef struct CSTNode
     int child_count;           // Cantidad de hijos
     int line;                  // Línea en el código fuente
     int column;                // Columna en el código fuente
+    ParserToken *token;        // Token asociado (NULL para no terminales)
 } CSTNode;
 
 // ===== FUNCIONES AUXILIARES =====
@@ -93,6 +103,9 @@ CSTNode *create_cst_node(const char *symbol);
 
 // Agregar hijo a un nodo CST
 void add_cst_child(CSTNode *parent, CSTNode *child);
+
+// Asignar token a un nodo CST
+void set_cst_token(CSTNode *node, ParserToken *token);
 
 // Liberar memoria de un árbol CST
 void free_cst_tree(CSTNode *root);
