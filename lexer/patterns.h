@@ -37,7 +37,7 @@ static TokenPattern patterns[] = {
     {TOKEN_ID, "[a-zA-ZñÑ][a-zA-ZñÑ0-9_]*", 0},
 
     // Literales
-    {TOKEN_STRING, "\"([^\"\\\\]|\\\\.)*\"", 0},
+    {TOKEN_STRING, "\"([^\"\\]|\\.)*\"", 0},
     {TOKEN_NUMBER, "[0-9]+(\\.[0-9]+)?", 0},
     {TOKEN_BOOLEAN, "true|false", 0},
 

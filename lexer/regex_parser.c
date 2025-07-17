@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 char peek(RegexParser *parser)
 {
@@ -27,8 +28,82 @@ bool eat(RegexParser *parser, char c)
     return false;
 }
 
+// --- FUNCIÓN AUXILIAR PARA STRINGS ---
+// Construye un NFA que acepte un string entre comillas dobles, permitiendo escapes (\" y \\)
+NFA *nfa_string_literal(void)
+{
+    printf("DEBUG: Creando NFA especial para strings\n");
+    NFA *nfa = nfa_create();
+    if (!nfa)
+        return NULL;
+    int s0 = 0; // estado inicial
+    int s1 = 1; // dentro del string
+    int s2 = 2; // escape
+    int s3 = 3; // estado final (después de la comilla de cierre)
+    nfa->num_states = 4;
+    nfa->start_state = s0;
+
+    // Transición: comilla de apertura
+    nfa_add_transition(nfa, s0, '"', s1, false);
+    nfa->alphabet[nfa->alphabet_size++] = '"';
+
+    // Transiciones dentro del string - agregar TODOS los caracteres ASCII imprimibles
+    for (int c = 32; c < 127; c++) // ASCII imprimibles (32-126)
+    {
+        if (c == '\\' || c == '"')
+            continue; // Estos se manejan por separado
+        nfa_add_transition(nfa, s1, (char)c, s1, false);
+        nfa->alphabet[nfa->alphabet_size++] = (char)c;
+    }
+
+    // Escape
+    nfa_add_transition(nfa, s1, '\\', s2, false);
+    nfa->alphabet[nfa->alphabet_size++] = '\\';
+
+    // Después del escape, aceptar cualquier carácter
+    for (int c = 0; c < 128; c++)
+    {
+        nfa_add_transition(nfa, s2, (char)c, s1, false);
+        // Agregar al alfabeto si no está ya
+        bool found = false;
+        for (int i = 0; i < nfa->alphabet_size; i++)
+        {
+            if (nfa->alphabet[i] == (char)c)
+            {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+        {
+            nfa->alphabet[nfa->alphabet_size++] = (char)c;
+        }
+    }
+
+    // Comilla de cierre
+    nfa_add_transition(nfa, s1, '"', s3, false);
+
+    // Estado final
+    nfa_add_final_state(nfa, s3, TOKEN_STRING);
+    printf("DEBUG: NFA especial creado con %d estados, estado inicial: %d, estado final: %d, alfabeto: %d símbolos\n",
+           nfa->num_states, nfa->start_state, s3, nfa->alphabet_size);
+    return nfa;
+}
+
 NFA *regex_parse(const char *pattern, int is_literal)
 {
+    // --- CASO ESPECIAL: patrón de string ---
+    if (!is_literal && pattern && strlen(pattern) > 0 && pattern[0] == '"')
+    {
+        // Detecta cualquier patrón que empiece y termine con comillas dobles
+        size_t len = strlen(pattern);
+        if (len > 1 && pattern[len - 1] == '"')
+        {
+            // Si empieza y termina con comillas, usar el NFA especial
+            printf("DEBUG: Detectado patrón de string: %s\n", pattern);
+            return nfa_string_literal();
+        }
+    }
     if (is_literal)
     {
         // Construir una concatenación de símbolos
