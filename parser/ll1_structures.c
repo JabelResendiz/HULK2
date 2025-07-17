@@ -1,4 +1,5 @@
 #include "ll1_structures.h"
+#include "ll1_parser.h"
 
 // ===== IMPLEMENTACIÓN DE CONJUNTOS DE SÍMBOLOS =====
 
@@ -175,6 +176,7 @@ CSTNode *create_cst_node(const char *symbol)
     node->child_count = 0;
     node->line = 0;
     node->column = 0;
+    node->token = NULL; // Inicializar token como NULL
     return node;
 }
 
@@ -184,6 +186,21 @@ void add_cst_child(CSTNode *parent, CSTNode *child)
     parent->children = realloc(parent->children,
                                parent->child_count * sizeof(CSTNode *));
     parent->children[parent->child_count - 1] = child;
+}
+
+void set_cst_token(CSTNode *node, ParserToken *token)
+{
+    if (!node)
+        return;
+
+    // Liberar token anterior si existe
+    if (node->token)
+    {
+        free_token(node->token);
+    }
+
+    // Asignar nuevo token
+    node->token = token;
 }
 
 void free_cst_tree(CSTNode *root)
@@ -199,6 +216,13 @@ void free_cst_tree(CSTNode *root)
 
     free(root->children);
     free(root->symbol);
+
+    // Liberar token si existe
+    if (root->token)
+    {
+        free_token(root->token);
+    }
+
     free(root);
 }
 

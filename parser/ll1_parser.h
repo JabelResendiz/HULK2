@@ -8,15 +8,6 @@
 
 // ===== PARSER LL(1) =====
 
-// Token del lexer
-typedef struct
-{
-    char *type;  // Tipo de token (ID, NUMBER, etc.)
-    char *value; // Valor del token
-    int line;    // Línea en el código fuente
-    int column;  // Columna en el código fuente
-} ParserToken;
-
 // Estado del parser
 typedef struct
 {
