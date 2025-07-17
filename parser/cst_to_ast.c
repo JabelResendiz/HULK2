@@ -24,6 +24,10 @@ ASTNode *process_for_body(CSTNode *cst_node);
 ASTNode *process_if_body(CSTNode *cst_node);
 ASTNode *process_while_body(CSTNode *cst_node);
 
+// Funciones auxiliares para TypeDef
+void collect_type_members(CSTNode *type_body, ASTNode ***members, int *member_count);
+void collect_type_params(CSTNode *arg_id_list, ASTNode ***params, int *param_count);
+
 // ============================================================================
 // FUNCIONES PRINCIPALES
 // ============================================================================
@@ -802,64 +806,127 @@ ASTNode *typeDef_to_ast(CSTNode *cst_node)
     ASTNode *body = NULL;
     int p_constructor = 0;
 
-    // Buscar: type ID ( ParamList ) inherits ParentType ( ParentParams ) { Body }
     for (int i = 0; i < cst_node->child_count; i++)
     {
         CSTNode *child = cst_node->children[i];
         DEBUG("Hijo %d de TypeDef: %s\n", i, child->symbol);
-
         if (!strcmp(child->symbol, "ID") && child->token)
         {
+            // Solo el primer ID es el nombre del tipo
             if (!type_name)
             {
                 type_name = strdup(child->token->value);
                 DEBUG("Nombre de tipo: %s\n", type_name);
             }
-            else if (!parent_name)
-            {
-                parent_name = strdup(child->token->value);
-                DEBUG("Nombre de padre: %s\n", parent_name);
-            }
         }
-        else if (!strcmp(child->symbol, "ParamList"))
+        else if (!strcmp(child->symbol, "TypeParams"))
         {
-            // Procesar parámetros del tipo
             for (int j = 0; j < child->child_count; j++)
             {
-                if (strcmp(child->children[j]->symbol, ",") != 0)
+                CSTNode *param_child = child->children[j];
+                if (param_child && !strcmp(param_child->symbol, "ArgIdList"))
                 {
-                    ASTNode *param = variable_to_ast(child->children[j]);
-                    if (param)
-                    {
-                        params = realloc(params, (param_count + 1) * sizeof(ASTNode *));
-                        params[param_count++] = param;
-                    }
+                    collect_type_params(param_child, &params, &param_count);
                 }
             }
             DEBUG("Parámetros del tipo procesados: %d\n", param_count);
         }
-        else if (!strcmp(child->symbol, "ParentParams"))
+        else if (!strcmp(child->symbol, "TypeInheritance"))
         {
-            // Procesar parámetros del padre
+            DEBUG("Procesando TypeInheritance con %d hijos\n", child->child_count);
             for (int j = 0; j < child->child_count; j++)
             {
-                if (strcmp(child->children[j]->symbol, ",") != 0)
+                CSTNode *inherit_child = child->children[j];
+                if (!inherit_child)
+                    continue;
+
+                DEBUG("Hijo %d de TypeInheritance: %s\n", j, inherit_child->symbol);
+
+                if (!strcmp(inherit_child->symbol, "ID") && inherit_child->token)
                 {
-                    ASTNode *param = expr_to_ast(child->children[j]);
-                    if (param)
+                    // Este es el nombre del tipo padre
+                    parent_name = strdup(inherit_child->token->value);
+                    DEBUG("Nombre del padre extraído: %s\n", parent_name);
+                }
+                else if (!strcmp(inherit_child->symbol, "TypeBaseArgs"))
+                {
+                    for (int k = 0; k < inherit_child->child_count; k++)
                     {
-                        p_params = realloc(p_params, (p_param_count + 1) * sizeof(ASTNode *));
-                        p_params[p_param_count++] = param;
+                        CSTNode *arg = inherit_child->children[k];
+                        if (arg && !strcmp(arg->symbol, "ArgList"))
+                        {
+                            // Procesar el primer Expr
+                            for (int l = 0; l < arg->child_count; l++)
+                            {
+                                CSTNode *expr = arg->children[l];
+                                if (expr && !strcmp(expr->symbol, "Expr"))
+                                {
+                                    ASTNode *p_param = expr_to_ast(expr);
+                                    if (p_param)
+                                    {
+                                        p_params = realloc(p_params, (p_param_count + 1) * sizeof(ASTNode *));
+                                        p_params[p_param_count++] = p_param;
+                                    }
+                                }
+                                else if (!strcmp(expr->symbol, "ArgListTail"))
+                                {
+                                    // Procesar recursivamente todas las colas anidadas
+                                    CSTNode *tail = expr;
+                                    while (tail && !strcmp(tail->symbol, "ArgListTail"))
+                                    {
+                                        for (int m = 0; m < tail->child_count; m++)
+                                        {
+                                            CSTNode *tail_child = tail->children[m];
+                                            if (!tail_child)
+                                                continue;
+                                            if (!strcmp(tail_child->symbol, "Expr"))
+                                            {
+                                                ASTNode *p_param = expr_to_ast(tail_child);
+                                                if (p_param)
+                                                {
+                                                    p_params = realloc(p_params, (p_param_count + 1) * sizeof(ASTNode *));
+                                                    p_params[p_param_count++] = p_param;
+                                                }
+                                            }
+                                        }
+                                        // Buscar la siguiente cola anidada
+                                        CSTNode *next_tail = NULL;
+                                        for (int m = 0; m < tail->child_count; m++)
+                                        {
+                                            CSTNode *tail_child = tail->children[m];
+                                            if (tail_child && !strcmp(tail_child->symbol, "ArgListTail"))
+                                            {
+                                                next_tail = tail_child;
+                                                break;
+                                            }
+                                        }
+                                        tail = next_tail;
+                                    }
+                                }
+                            }
+                            p_constructor = 1;
+                        }
                     }
                 }
             }
-            p_constructor = 1;
             DEBUG("Parámetros del padre procesados: %d\n", p_param_count);
         }
-        else if (!strcmp(child->symbol, "Block") || !strcmp(child->symbol, "Body"))
+        else if (!strcmp(child->symbol, "TypeBody"))
         {
-            body = block_to_ast(child);
-            DEBUG("Cuerpo del tipo procesado\n");
+            DEBUG("Procesando TypeBody con %d hijos\n", child->child_count);
+            ASTNode **members = NULL;
+            int member_count = 0;
+            collect_type_members(child, &members, &member_count);
+            DEBUG("Total de miembros procesados: %d\n", member_count);
+            if (member_count > 0)
+            {
+                body = create_program_node(members, member_count, NODE_BLOCK);
+                DEBUG("Cuerpo del tipo creado exitosamente\n");
+            }
+            else
+            {
+                DEBUG("No se encontraron miembros válidos\n");
+            }
         }
     }
 
@@ -876,6 +943,148 @@ ASTNode *typeDef_to_ast(CSTNode *cst_node)
     free(params);
     free(p_params);
     return result;
+}
+
+// Función auxiliar para procesar un TypeMember
+ASTNode *process_type_member(CSTNode *member_node)
+{
+    if (!member_node || strcmp(member_node->symbol, "TypeMember") != 0)
+    {
+        return NULL;
+    }
+
+    char *member_name = NULL;
+    ASTNode **params = NULL;
+    int param_count = 0;
+    ASTNode *body = NULL;
+    char *ret_type = NULL;
+
+    // Procesar hijos del TypeMember
+    for (int i = 0; i < member_node->child_count; i++)
+    {
+        CSTNode *child = member_node->children[i];
+        if (!child)
+            continue;
+
+        if (!strcmp(child->symbol, "ID") && child->token)
+        {
+            member_name = strdup(child->token->value);
+        }
+        else if (!strcmp(child->symbol, "TypeMemberTail"))
+        {
+            // Procesar TypeMemberTail para determinar si es método o atributo
+            for (int j = 0; j < child->child_count; j++)
+            {
+                CSTNode *tail_child = child->children[j];
+                if (!tail_child)
+                    continue;
+
+                if (!strcmp(tail_child->symbol, "TypeMemberTail'"))
+                {
+                    // Procesar TypeMemberTail' para determinar si es método o atributo
+                    for (int k = 0; k < tail_child->child_count; k++)
+                    {
+                        CSTNode *tail_prime_child = tail_child->children[k];
+                        if (!tail_prime_child)
+                            continue;
+
+                        if (!strcmp(tail_prime_child->symbol, "LPAREN"))
+                        {
+                            // Es un método - buscar parámetros y cuerpo
+                            for (int l = k + 1; l < tail_child->child_count; l++)
+                            {
+                                CSTNode *method_part = tail_child->children[l];
+                                if (!method_part)
+                                    continue;
+
+                                if (!strcmp(method_part->symbol, "ArgIdList"))
+                                {
+                                    // Procesar parámetros
+                                    for (int m = 0; m < method_part->child_count; m++)
+                                    {
+                                        CSTNode *arg = method_part->children[m];
+                                        if (arg && strcmp(arg->symbol, "ArgId") == 0)
+                                        {
+                                            ASTNode *param = variable_to_ast(arg);
+                                            if (param)
+                                            {
+                                                params = realloc(params, (param_count + 1) * sizeof(ASTNode *));
+                                                params[param_count++] = param;
+                                            }
+                                        }
+                                    }
+                                }
+                                else if (!strcmp(method_part->symbol, "FunctionBody"))
+                                {
+                                    // Procesar cuerpo del método
+                                    body = process_function_body(method_part);
+                                }
+                            }
+                        }
+                        else if (!strcmp(tail_prime_child->symbol, "EQUALS"))
+                        {
+                            // Es un atributo - buscar la expresión
+                            for (int l = k + 1; l < tail_child->child_count; l++)
+                            {
+                                CSTNode *attr_part = tail_child->children[l];
+                                if (!attr_part)
+                                    continue;
+
+                                if (!strcmp(attr_part->symbol, "Expr"))
+                                {
+                                    body = expr_to_ast(attr_part);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (!member_name)
+    {
+        // Limpiar memoria en caso de error
+        if (params)
+            free(params);
+        return NULL;
+    }
+
+    // Crear nodo de función para el miembro
+    ASTNode *result = create_func_dec_node(member_name, params, param_count, body, ret_type);
+
+    // Limpiar array temporal
+    if (params)
+        free(params);
+
+    return result;
+}
+
+// Función auxiliar para procesar FunctionBody
+ASTNode *process_function_body(CSTNode *body_node)
+{
+    if (!body_node || strcmp(body_node->symbol, "FunctionBody") != 0)
+    {
+        return NULL;
+    }
+
+    for (int i = 0; i < body_node->child_count; i++)
+    {
+        CSTNode *child = body_node->children[i];
+        if (!child)
+            continue;
+
+        if (!strcmp(child->symbol, "FunctionBodyExpr"))
+        {
+            return expr_to_ast(child);
+        }
+        else if (!strcmp(child->symbol, "BlockStmt"))
+        {
+            return block_to_ast(child);
+        }
+    }
+
+    return NULL;
 }
 
 ASTNode *while_to_ast(CSTNode *cst_node)
@@ -2345,30 +2554,36 @@ ASTNode **process_arg_list(CSTNode *arg_list, int *count)
     return args;
 }
 
-
-
-ASTNode** process_arg_list_tail(CSTNode* tail_node, int* count)
+ASTNode **process_arg_list_tail(CSTNode *tail_node, int *count)
 {
     *count = 0;
-    ASTNode** args = NULL;
+    ASTNode **args = NULL;
 
-    for (int i = 0; i < tail_node->child_count; i++) {
-        CSTNode* child = tail_node->children[i];
-        if (!child) continue;
+    for (int i = 0; i < tail_node->child_count; i++)
+    {
+        CSTNode *child = tail_node->children[i];
+        if (!child)
+            continue;
 
-        if (!strcmp(child->symbol, "Expr")) {
-            ASTNode* arg = expr_to_ast(child);
-            if (arg) {
-                args = realloc(args, (*count + 1) * sizeof(ASTNode*));
+        if (!strcmp(child->symbol, "Expr"))
+        {
+            ASTNode *arg = expr_to_ast(child);
+            if (arg)
+            {
+                args = realloc(args, (*count + 1) * sizeof(ASTNode *));
                 args[*count] = arg;
                 (*count)++;
             }
-        } else if (!strcmp(child->symbol, "ArgListTail")) {
+        }
+        else if (!strcmp(child->symbol, "ArgListTail"))
+        {
             int tail_count = 0;
-            ASTNode** tail_args = process_arg_list_tail(child, &tail_count);
-            if (tail_args && tail_count > 0) {
-                args = realloc(args, (*count + tail_count) * sizeof(ASTNode*));
-                for (int j = 0; j < tail_count; j++) {
+            ASTNode **tail_args = process_arg_list_tail(child, &tail_count);
+            if (tail_args && tail_count > 0)
+            {
+                args = realloc(args, (*count + tail_count) * sizeof(ASTNode *));
+                for (int j = 0; j < tail_count; j++)
+                {
                     args[*count + j] = tail_args[j];
                 }
                 *count += tail_count;
@@ -2377,4 +2592,109 @@ ASTNode** process_arg_list_tail(CSTNode* tail_node, int* count)
         }
     }
     return args;
+}
+
+// --- IMPLEMENTACIÓN DE FUNCIONES AUXILIARES ---
+
+// Procesa recursivamente todos los TypeMember de un TypeBody
+void collect_type_members(CSTNode *type_body, ASTNode ***members, int *member_count)
+{
+    if (!type_body || strcmp(type_body->symbol, "TypeBody") != 0)
+        return;
+    for (int i = 0; i < type_body->child_count; i++)
+    {
+        CSTNode *child = type_body->children[i];
+        if (!child)
+            continue;
+        if (!strcmp(child->symbol, "TypeMember"))
+        {
+            ASTNode *member = process_type_member(child);
+            if (member)
+            {
+                *members = realloc(*members, (*member_count + 1) * sizeof(ASTNode *));
+                (*members)[(*member_count)++] = member;
+            }
+        }
+        else if (!strcmp(child->symbol, "TypeBody"))
+        {
+            collect_type_members(child, members, member_count);
+        }
+    }
+}
+
+// Procesa recursivamente todos los ArgId de un ArgIdList
+void collect_type_params(CSTNode *arg_id_list, ASTNode ***params, int *param_count)
+{
+    if (!arg_id_list || strcmp(arg_id_list->symbol, "ArgIdList") != 0)
+        return;
+
+    // Procesar el primer ArgId
+    for (int i = 0; i < arg_id_list->child_count; i++)
+    {
+        CSTNode *child = arg_id_list->children[i];
+        if (!child)
+            continue;
+        if (!strcmp(child->symbol, "ArgId"))
+        {
+            for (int j = 0; j < child->child_count; j++)
+            {
+                CSTNode *arg_child = child->children[j];
+                if (!arg_child)
+                    continue;
+                if (!strcmp(arg_child->symbol, "ID") && arg_child->token)
+                {
+                    ASTNode *param = create_variable_node(strdup(arg_child->token->value), NULL, 0);
+                    if (param)
+                    {
+                        *params = realloc(*params, (*param_count + 1) * sizeof(ASTNode *));
+                        (*params)[(*param_count)++] = param;
+                    }
+                }
+            }
+        }
+        else if (!strcmp(child->symbol, "ArgIdListTail"))
+        {
+            // Procesar recursivamente todas las colas anidadas
+            CSTNode *tail = child;
+            while (tail && !strcmp(tail->symbol, "ArgIdListTail"))
+            {
+                for (int k = 0; k < tail->child_count; k++)
+                {
+                    CSTNode *tail_child = tail->children[k];
+                    if (!tail_child)
+                        continue;
+                    if (!strcmp(tail_child->symbol, "ArgId"))
+                    {
+                        for (int m = 0; m < tail_child->child_count; m++)
+                        {
+                            CSTNode *arg_child = tail_child->children[m];
+                            if (!arg_child)
+                                continue;
+                            if (!strcmp(arg_child->symbol, "ID") && arg_child->token)
+                            {
+                                ASTNode *param = create_variable_node(strdup(arg_child->token->value), NULL, 0);
+                                if (param)
+                                {
+                                    *params = realloc(*params, (*param_count + 1) * sizeof(ASTNode *));
+                                    (*params)[(*param_count)++] = param;
+                                }
+                            }
+                        }
+                    }
+                }
+                // Buscar la siguiente cola anidada
+                CSTNode *next_tail = NULL;
+                for (int k = 0; k < tail->child_count; k++)
+                {
+                    CSTNode *tail_child = tail->children[k];
+                    if (tail_child && !strcmp(tail_child->symbol, "ArgIdListTail"))
+                    {
+                        next_tail = tail_child;
+                        break;
+                    }
+                }
+                tail = next_tail;
+            }
+        }
+    }
 }
