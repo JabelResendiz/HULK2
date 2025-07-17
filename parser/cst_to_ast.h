@@ -468,9 +468,13 @@ void free_transform_context(TransformContext* context);
 
 ASTNode** process_var_binding_list(CSTNode* var_binding_list, int* count);
 ASTNode* process_var_binding(CSTNode* var_binding);
+
+ASTNode** process_var_binding_list_tail(CSTNode* tail_node, int* count);
+
 ASTNode* process_let_body(CSTNode* let_body);
 ASTNode* primary_to_ast(CSTNode* cst_node);
 ASTNode* process_primary_tail(ASTNode* base, CSTNode* primary_tail);
 ASTNode** process_arg_list(CSTNode* arg_list, int* count);
+ASTNode** process_arg_list_tail(CSTNode* tail_node, int* count);
 
 #endif // CST_TO_AST_H
